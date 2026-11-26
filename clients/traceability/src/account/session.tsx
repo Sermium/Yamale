@@ -19,6 +19,7 @@ import {
   ACCOUNT_EXISTS, adoptKey, createAccount, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount,
 } from '../../../shared/account/device.ts';
 import { protectionOutcome } from '../../../shared/account/protection.ts';
+import { takeHandoffKey } from '../../../shared/account/handoff.ts';
 
 /** The sponsor's current message list version (traceabilityapi ownerList). */
 export const SPONSOR_LIST = 4;
@@ -87,6 +88,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [lock]);
 
   const hold = useCallback((k: Uint8Array) => { key.current?.fill(0); key.current = k; setUnlocked(true); touch(); }, [touch]);
+
+  // An account handed over by accounts.yamaletech.com right after signing in
+  // there brings its open key: it opens at once, in memory only.
+  useEffect(() => {
+    const handed = takeHandoffKey();
+    if (!handed) return;
+    const here = readAccount();
+    if (here && here.address === handed.account.address) { setAccount(here); hold(handed.key); } else handed.key.fill(0);
+  }, [hold]);
 
   const withKey = useCallback(<T,>(use: (k: Uint8Array) => T): T => {
     if (!key.current) throw new Error('locked');

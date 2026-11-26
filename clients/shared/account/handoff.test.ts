@@ -83,3 +83,23 @@ test('a page with no hand-off in its fragment is left alone', () => {
   assert.equal(receiveHandoff('', PAY, memory(), memory()).outcome, 'none');
   assert.equal(receiveHandoff('#/j/1/2', PAY, memory(), memory()).outcome, 'none');
 });
+
+test('the open key travels only when it is the account’s own, and opens the account at once', async () => {
+  const { secp256k1 } = await import('@noble/curves/secp256k1');
+  const { addressOfPublicKey } = await import('../../sdk/src/jewel.ts');
+  const key = new Uint8Array(32).fill(7);
+  const mine = { ...account, address: addressOfPublicKey(secp256k1.getPublicKey(key, true)) };
+  const session = memory();
+  const { pk, state } = start(session);
+  const out = receiveHandoff('#' + sealForApp(mine, pk, PAY, state, undefined, key), PAY, session, memory());
+  assert.equal(out.outcome, 'imported');
+  assert.deepEqual(out.account?.address, mine.address);
+  assert.deepEqual(out.key, key);
+
+  // A key that is not the account's is dropped: the app asks for the password instead.
+  const s2 = memory();
+  const r2 = start(s2);
+  const wrong = receiveHandoff('#' + sealForApp(mine, r2.pk, PAY, r2.state, undefined, new Uint8Array(32).fill(9)), PAY, s2, memory());
+  assert.equal(wrong.outcome, 'imported');
+  assert.equal(wrong.key, undefined);
+});

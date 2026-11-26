@@ -17,6 +17,7 @@ import { adoptKey, forgetAccount, readAccount, updateAccount, type StoredAccount
 import { APPS, appOrigin, sealForApp } from '../../shared/account/handoff.ts';
 import { deviceLabel, signIn, startSignIn, type SignInFailure, type Started } from '../../shared/account/signin.ts';
 import type { Services } from '../../wallet/src/account/enrol.ts';
+import { PasswordField } from '../../shared/account/PasswordField.tsx';
 
 const SERVICES: Services = { custodianUrl: '/api/custodian', recoveryUrl: '/api/recovery' };
 const BASE = import.meta.env.BASE_URL;
@@ -40,7 +41,7 @@ function failure(reason: SignInFailure): string {
   return t(`accounts.fail.${reason}`);
 }
 
-function SignIn({ onDone }: { onDone: (a: StoredAccount) => void }) {
+function SignIn({ onDone }: { onDone: (a: StoredAccount, key: Uint8Array) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [started, setStarted] = useState<Extract<Started, { ok: true }> | null>(null);
@@ -75,11 +76,11 @@ function SignIn({ onDone }: { onDone: (a: StoredAccount) => void }) {
       return;
     }
     await adoptKey(out.privateKey, email, password);
-    out.privateKey.fill(0);
     const account = updateAccount({ protection: 'enrolled' });
     setPassword('');
     setBusy(false);
-    onDone(account);
+    // Kept in memory for the hand-off that follows, so the app does not ask again.
+    onDone(account, out.privateKey);
   }
 
   if (started) {
@@ -100,7 +101,7 @@ function SignIn({ onDone }: { onDone: (a: StoredAccount) => void }) {
       <label className="y-label" htmlFor="email">{t('accounts.email')}</label>
       <input id="email" className="field" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       <label className="y-label" htmlFor="password">{t('accounts.password')}</label>
-      <input id="password" className="field" type="password" autoComplete="current-password" required value={password}
+      <PasswordField id="password" className="field" autoComplete="current-password" required value={password}
              onChange={(e) => setPassword(e.target.value)} />
       {error && <p className="note note--warn" role="alert">{error}</p>}
       <button className="btn btn--primary" disabled={busy}>{busy ? t('accounts.working') : t('accounts.signIn')}</button>
@@ -108,13 +109,17 @@ function SignIn({ onDone }: { onDone: (a: StoredAccount) => void }) {
   );
 }
 
-function Handoff({ account, request, onNotMe }: { account: StoredAccount; request: Request; onNotMe: () => void }) {
+function Handoff({ account, request, openKey, onNotMe }: {
+  account: StoredAccount; request: Request; openKey: Uint8Array | null; onNotMe: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const app = APPS[request.origin];
   function go() {
     setBusy(true);
     const back = request.returnUrl.split('#')[0];
-    location.replace(`${back}#${sealForApp(account, request.pk, request.origin, request.state)}`);
+    const fragment = sealForApp(account, request.pk, request.origin, request.state, undefined, openKey);
+    openKey?.fill(0);
+    location.replace(`${back}#${fragment}`);
   }
   return (
     <div className="handoff">
@@ -137,8 +142,12 @@ export function App() {
   useLocale();
   const [request] = useState(readRequest);
   const [account, setAccount] = useState<StoredAccount | null>(() => readAccount());
+  // The key of an account signed in on this page just now, for its hand-off only.
+  const [openKey, setOpenKey] = useState<Uint8Array | null>(null);
 
   function forget() {
+    openKey?.fill(0);
+    setOpenKey(null);
     forgetAccount();
     setAccount(null);
   }
@@ -149,11 +158,11 @@ export function App() {
   } else if (!account) {
     body = (<>
       <p className="lede">{request ? t('accounts.signInFor', { app: APPS[request.origin] }) : t('accounts.signInLede')}</p>
-      <SignIn onDone={setAccount} />
+      <SignIn onDone={(a, k) => { setAccount(a); setOpenKey(k); }} />
       <p className="hint">{t('accounts.noAccountYet')}</p>
     </>);
   } else if (request) {
-    body = <Handoff account={account} request={request} onNotMe={forget} />;
+    body = <Handoff account={account} request={request} openKey={openKey} onNotMe={forget} />;
   } else {
     body = (<>
       <p className="lede">{t('accounts.signedInHere', { email: account.email })}</p>

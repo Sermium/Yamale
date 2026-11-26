@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
 import { countryNames, guessCountry } from '../../shared/account/countries.ts';
-import { canSignInWithYamale, handoffOutcome, signInWithYamale } from '../../shared/account/handoff.ts';
+import { canSignInWithYamale, handoffOutcome, signInWithYamale, takeHandoffKey } from '../../shared/account/handoff.ts';
 
 import {
-  checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, signIn, signOut, signUp,
+  checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, signerFromHandoff, signIn, signOut, signUp,
   type Previous, type Signer, type SignInStep,
 } from './account.ts';
 import { CURRENCIES, currencyOf, display, parseAmount, toBaseUnits, rawAmount, groupDigits, defaultDenom, setDefaultDenom } from './money.ts';
@@ -30,6 +30,7 @@ import * as swaps from './swap.ts';
 import * as agents from './agents.ts';
 import * as ramp from './ramp.ts';
 import * as ledger from './ledger.ts';
+import { PasswordField } from '../../shared/account/PasswordField.tsx';
 
 /**
  * The whole app runs inside a phone frame on a desktop screen, because this is
@@ -44,6 +45,12 @@ import * as ledger from './ledger.ts';
 export function App() {
   const [signer, setSigner] = useState<Signer | null>(null);
   const [previous, setPrevious] = useState<Previous | null>(null);
+  // An account handed over with its open key (just signed in on accounts.yamaletech.com) opens at once.
+  useEffect(() => {
+    const handed = takeHandoffKey();
+    if (!handed) return;
+    signerFromHandoff(handed.account.address, handed.account.email, handed.key).then(setSigner);
+  }, []);
   const [topUpDone, setTopUpDone] = useState(0);
   const [topping, setTopping] = useState(false);
   // Subscribing here re-renders every screen below when the language
@@ -421,8 +428,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
         </>)}
         <label>
           <span>{t('app.password')}</span>
-          <input
-            type="password" value={password} onChange={(e) => setPassword(e.target.value)}
+          <PasswordField value={password} onChange={(e) => setPassword(e.target.value)}
             required minLength={mode === 'up' ? 10 : 1}
             autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
           />
@@ -1218,7 +1224,7 @@ function Settings({ signer, onClosed }: { signer: Signer; onClosed: () => void }
               <div className="form">
                 <label>
                   <span>{t('app.confirmPassword')}</span>
-                  <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
+                  <PasswordField value={pw} onChange={(e) => setPw(e.target.value)}
                          autoComplete="current-password" />
                 </label>
                 {pwError && <p className="notice notice--bad">{t('app.wrongPassword')}</p>}
@@ -2312,7 +2318,7 @@ function BiometricSetting({ email }: { email: string }) {
         <form className="form" onSubmit={turnOn}>
           <label>
             <span>{t('app.confirmPassword')}</span>
-            <input type="password" value={pw} onChange={(e) => setPw(e.target.value)}
+            <PasswordField value={pw} onChange={(e) => setPw(e.target.value)}
                    autoComplete="current-password" />
           </label>
           {note && <p className="notice notice--bad">{note}</p>}

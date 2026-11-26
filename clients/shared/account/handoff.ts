@@ -6,8 +6,13 @@
  * Each app keeps its own copy of the account, because a browser keeps storage
  * per origin; what travels between them is the account in its SEALED form (the
  * key under the person's password), never an open key and never the password.
- * The receiving app still asks for the password, which is what keeps the key
- * safe on a device somebody else picks up.
+ * When the person has just signed in on the accounts page, the open key goes
+ * along too, inside the same box, so the app opens at once instead of asking
+ * for the password a second time; the app checks the key is the account's
+ * before using it, and keeps it in memory only. When the accounts page merely
+ * confirms an account it already held, only the sealed form travels and the
+ * app asks for the password, which is what keeps the key safe on a device
+ * somebody else picks up.
  *
  * The trip:
  *   1. The app makes a one-time key, keeps its private half in this tab's
@@ -30,7 +35,7 @@ import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 
-import { fromBase64Url, toBase64Url, toHex, fromHex } from '../../sdk/src/jewel.ts';
+import { addressOfPublicKey, compressedPublicKey, fromBase64Url, toBase64Url, toHex, fromHex } from '../../sdk/src/jewel.ts';
 import { readAccount, writeImportedAccount, type KeyStore, type StoredAccount } from './device.ts';
 
 export const ACCOUNTS_ORIGIN = 'https://accounts.yamaletech.com';
@@ -86,8 +91,9 @@ const defaultRandom = (n: number) => crypto.getRandomValues(new Uint8Array(n));
 
 /** On the accounts page: the account sealed for the app that asked, as a fragment. */
 export function sealForApp(account: StoredAccount, appPublicKey: string, origin: string, state: string,
-  random: (n: number) => Uint8Array = defaultRandom): string {
-  const box = seal(utf8.encode(JSON.stringify({ v: 1, account })), fromBase64Url(appPublicKey), origin, state, random);
+  random: (n: number) => Uint8Array = defaultRandom, openKey: Uint8Array | null = null): string {
+  const payload = { v: 1, account, ...(openKey ? { key: toHex(openKey) } : {}) };
+  const box = seal(utf8.encode(JSON.stringify(payload)), fromBase64Url(appPublicKey), origin, state, random);
   return `yamale-handoff=${toBase64Url(box)}&state=${encodeURIComponent(state)}`;
 }
 
@@ -112,7 +118,7 @@ export type Received = 'none' | 'imported' | 'exists' | 'failed';
  * one, store it, and clear the fragment and the one-time key either way.
  */
 export function receiveHandoff(hash: string, origin: string, session: KeyStore = globalThis.sessionStorage,
-  store?: KeyStore): { outcome: Received; account?: StoredAccount } {
+  store?: KeyStore): { outcome: Received; account?: StoredAccount; key?: Uint8Array } {
   const params = new URLSearchParams(hash.replace(/^#/, ''));
   const boxed = params.get('yamale-handoff');
   const state = params.get('state');
@@ -123,22 +129,34 @@ export function receiveHandoff(hash: string, origin: string, session: KeyStore =
   const plain = open(fromBase64Url(boxed), fromHex(privHex), origin, state);
   if (!plain) return { outcome: 'failed' };
   let account: StoredAccount;
+  let key: Uint8Array | undefined;
   try {
-    const parsed = JSON.parse(new TextDecoder().decode(plain)) as { v: number; account: StoredAccount };
+    const parsed = JSON.parse(new TextDecoder().decode(plain)) as { v: number; account: StoredAccount; key?: string };
     if (parsed.v !== 1 || !parsed.account?.address || !parsed.account?.sealed) return { outcome: 'failed' };
     account = parsed.account;
+    if (parsed.key) {
+      // Used only if it is the account's own key.
+      const k = fromHex(parsed.key);
+      if (k.length === 32 && addressOfPublicKey(compressedPublicKey(k)) === account.address) key = k;
+      else k.fill(0);
+    }
   } catch {
     return { outcome: 'failed' };
   }
   const here = readAccount(store);
-  if (here) return { outcome: here.address === account.address ? 'imported' : 'exists', account };
+  if (here) {
+    if (here.address === account.address) return { outcome: 'imported', account, ...(key ? { key } : {}) };
+    key?.fill(0);
+    return { outcome: 'exists', account };
+  }
   writeImportedAccount(account, store);
-  return { outcome: 'imported', account };
+  return { outcome: 'imported', account, ...(key ? { key } : {}) };
 }
 
 /* ------------------------------------------------ in an app, at start-up */
 
 let outcome: Received = 'none';
+let handed: { account: StoredAccount; key: Uint8Array } | null = null;
 
 /**
  * Called once before the app renders, so the account is stored before the
@@ -148,12 +166,24 @@ let outcome: Received = 'none';
 export function receiveHandoffHere(): Received {
   if (typeof location === 'undefined' || !location.hash.includes('yamale-handoff=')) return outcome;
   try {
-    outcome = receiveHandoff(location.hash, location.origin).outcome;
+    const r = receiveHandoff(location.hash, location.origin);
+    outcome = r.outcome;
+    if (r.key && r.account) handed = { account: r.account, key: r.key };
   } catch {
     outcome = 'failed';
   }
   history.replaceState(null, '', location.pathname + location.search);
   return outcome;
+}
+
+/**
+ * The open key a hand-off brought, once: the app holds it in memory as its
+ * unlocked session, and it is gone from here.
+ */
+export function takeHandoffKey(): { account: StoredAccount; key: Uint8Array } | null {
+  const h = handed;
+  handed = null;
+  return h;
 }
 
 /** How the last "Sign in with Yamale" ended, for the sign-in screen to say so. */

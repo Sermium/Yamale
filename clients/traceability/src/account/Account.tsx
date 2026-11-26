@@ -28,6 +28,7 @@ import { ACCOUNT_EXISTS, MIN_PASSWORD, WrongPassword } from '../../../shared/acc
 import { claimRecovered } from '../../../shared/account/recover.ts';
 import { useSession } from './session.tsx';
 import { beginAuthenticator, confirmAuthenticator, deviceLabel, signIn, startSignIn, type SignInFailure } from '../../../shared/account/signin.ts';
+import { PasswordField } from '../../../shared/account/PasswordField.tsx';
 
 const lang = () => (typeof document !== 'undefined' ? document.documentElement.lang : '') || 'en';
 const digits = (v: string) => v.replace(/[^0-9]/g, '');
@@ -125,10 +126,10 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
       <input id={uid + '-birth'} className="bigfield" type="date" autoComplete="bday" value={birthDate} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} onChange={(e) => setBirthDate(e.target.value)} />
       <p className="hint">{t('traceability.profileVisibility')}</p>
       <label className="y-label" htmlFor={uid + '-pw'}>{t('traceability.password')}</label>
-      <input id={uid + '-pw'} className="bigfield" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+      <PasswordField id={uid + '-pw'} className="bigfield" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       {tooShort && <p className="hint">{t('traceability.passwordShort', { n: MIN_PASSWORD })}</p>}
       <label className="y-label" htmlFor={uid + '-pw2'}>{t('traceability.passwordAgain')}</label>
-      <input id={uid + '-pw2'} className="bigfield" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
+      <PasswordField id={uid + '-pw2'} className="bigfield" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
       {differs && <p className="hint">{t('traceability.passwordDiffers')}</p>}
       <p className="note">{t('traceability.passwordWarning')}</p>
       <fieldset className="stack">
@@ -236,7 +237,7 @@ export function SignInForm({ onDone }: { onDone?: () => void }) {
         <label className="y-label" htmlFor={uid + '-email'}>{t('traceability.email')}</label>
         <input id={uid + '-email'} className="bigfield" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <label className="y-label" htmlFor={uid + '-pw'}>{t('traceability.password')}</label>
-        <input id={uid + '-pw'} className="bigfield" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <PasswordField id={uid + '-pw'} className="bigfield" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {failureNote}
         <button className="btn btn--primary" disabled={busy}>{busy ? t('traceability.signingIn') : t('traceability.signInNext')}</button>
       </form>
@@ -309,7 +310,7 @@ export function UnlockForm({ onDone }: { onDone?: () => void }) {
   return (
     <form className="stack" onSubmit={submit}>
       <label className="y-label" htmlFor={uid + '-unlock'}>{t('traceability.passwordToOpen')}</label>
-      <input id={uid + '-unlock'} className="bigfield" type="password" autoComplete="current-password" value={password}
+      <PasswordField id={uid + '-unlock'} className="bigfield" autoComplete="current-password" value={password}
              onChange={(e) => setPassword(e.target.value)} required />
       {state === 'wrong' && <p className="note note--warn" role="alert">{t('traceability.passwordWrong')}</p>}
       <button className="btn btn--primary" disabled={state === 'busy'}>
@@ -363,7 +364,7 @@ function ProtectButton() {
       } catch (err) { setState(err instanceof WrongPassword ? 'wrong' : 'failed'); }
     }}>
       <label className="y-label" htmlFor="pp">{t('traceability.passwordToProtect')}</label>
-      <input id="pp" className="bigfield" type="password" autoComplete="current-password" value={password}
+      <PasswordField id="pp" className="bigfield" autoComplete="current-password" value={password}
              onChange={(e) => setPassword(e.target.value)} required />
       {state === 'unavailable' && <p className="note">{t('traceability.protectUnavailable')}</p>}
       {state === 'inuse' && <p className="note note--warn" role="alert">{t('traceability.protectEmailInUse')}</p>}
@@ -401,7 +402,7 @@ function RecoverForm() {
       <label className="y-label" htmlFor="remail">{t('traceability.email')}</label>
       <input id="remail" className="bigfield" type="email" value={f.email} onChange={set('email')} required />
       <label className="y-label" htmlFor="rpw">{t('traceability.password')}</label>
-      <input id="rpw" className="bigfield" type="password" autoComplete="current-password" value={f.password} onChange={set('password')} required />
+      <PasswordField id="rpw" className="bigfield" autoComplete="current-password" value={f.password} onChange={set('password')} required />
       <label className="y-label" htmlFor="rfactor">{t('traceability.factor')}</label>
       <select id="rfactor" className="bigfield" value={f.factor} onChange={set('factor')}>
         <option value="email">{t('traceability.factorEmail')}</option>

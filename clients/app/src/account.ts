@@ -246,6 +246,11 @@ export async function finishSignIn(step: Extract<SignInStep, { kind: 'code' }>, 
   return { kind: 'done', signer, ...(step.previous ? { previous: step.previous } : {}) };
 }
 
+/** A session for an account handed over by accounts.yamaletech.com with its open key. */
+export async function signerFromHandoff(address: string, email: string, key: Uint8Array): Promise<Signer> {
+  return fromKey(key, { name: await nameFor(key, address, email), email });
+}
+
 /** Whether this password opens the account on this device: for settings that ask again. */
 export async function checkPassword(email: string, password: string): Promise<boolean> {
   const local = readAccount();
