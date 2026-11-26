@@ -395,3 +395,4 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 /* The profile: first and last name side by side where they fit, the recorded country as text. */
 .profileform__names { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-3); }
 .profileform__fixed { margin: 0; display: grid; gap: var(--sp-1); font-weight: 600; }
+.profileform__shop { margin: 0; font-size: var(--step-2); font-weight: 600; }

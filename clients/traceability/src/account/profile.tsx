@@ -9,6 +9,7 @@
  */
 
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { t } from '@yamale/chain';
 
 import { lookupPerson, readMyPerson, savePerson } from '../api.ts';
@@ -16,6 +17,7 @@ import { CHAIN_ID } from '../config.ts';
 import { claimIdentifier, CountrySelect, guessCountry } from './identifier.tsx';
 import { forgetName, setNameReader, useAccountLabel } from './names.tsx';
 import { useSession, type Session } from './session.tsx';
+import { useRole } from '../atelier/shared/role.ts';
 
 const IDENTIFIER = /\b([A-Z]{2})-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]\b/;
 
@@ -48,6 +50,8 @@ export function ProfileSection({ session }: { session: Session }) {
   const [birth, setBirth] = useState('');
   const [country, setCountry] = useState(guessCountry);
   const [state, setState] = useState<'idle' | 'busy' | 'saved' | 'failed' | 'noIdentifier'>('idle');
+  // A shop's own account is the shop: it is known by the shop's name, not a person's.
+  const [role] = useRole(me || null);
 
   useEffect(() => {
     if (!me) return;
@@ -77,6 +81,22 @@ export function ProfileSection({ session }: { session: Session }) {
   }
 
   if (!me) return null;
+  if (role.state === 'role' && role.business) {
+    return (
+      <section className="panel stack profileform" aria-labelledby={uid + '-title'}>
+        <h2 id={uid + '-title'} className="panel__title panel__title--plain">{t('traceability.shopProfileTitle')}</h2>
+        <p className="profileform__shop">{role.jeweler.name}</p>
+        {identifier && (
+          <p className="profileform__fixed">
+            {countryName(identifier[1])}
+            <span className="hint">{t('traceability.countryRecorded', { id: identifier[0] })}</span>
+          </p>
+        )}
+        <p className="hint">{t('traceability.shopProfileExplain')}</p>
+        <Link className="btn" to="/atelier/look">{t('traceability.lookTitle')}</Link>
+      </section>
+    );
+  }
   return (
     <section className="panel stack profileform" aria-labelledby={uid + '-title'}>
       <h2 id={uid + '-title'} className="panel__title panel__title--plain">{t('traceability.profileTitle')}</h2>
