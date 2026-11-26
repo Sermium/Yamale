@@ -108,6 +108,30 @@ if [ "$API" = 1 ]; then
   fi
   echo "sponsor balance: $B uyml"
 
+  # The devnet welcome (--welcome below): each new account receives 10,000 USDC
+  # from the sponsor. Its stock is minted by the uusdc issuer, the foundation key
+  # the faucet holds. Below 100,000 USDC (ten accounts) a further 1,000,000 is
+  # minted, enough for a hundred; each install run checks again. Devnet only:
+  # on a real chain nobody mints to the sponsor.
+  usdc() {
+    curl -fsS "http://127.0.0.1:1317/cosmos/bank/v1beta1/balances/$ADDR/by_denom?denom=uusdc" 2>/dev/null \
+      | python3 -c "import sys,json;print(json.load(sys.stdin)[\"balance\"][\"amount\"])" 2>/dev/null || echo 0
+  }
+  U=$(usdc)
+  if [ "$U" -lt 100000000000 ]; then
+    echo "sponsor holds $U uusdc, minting 1,000,000 USDC for the welcome"
+    for try in 1 2 3; do
+      CODE=$(sudo -u yamale-faucet $BIN tx stablecoin mint-coin uusdc 1000000000000 "$ADDR" --from foundation \
+        --keyring-backend test --home /opt/yamale/faucet --node $NODE --chain-id yamale-devnet-2 \
+        --fees 5000uyml --gas 300000 --yes -o json 2>/dev/null | python3 -c "import sys,json;print(json.load(sys.stdin).get(\"code\",1))" 2>/dev/null || echo 1)
+      [ "$CODE" = 0 ] && break
+      sleep 7 # code 32 is a sequence clash with the faucet; the next block clears it
+    done
+    sleep 7
+    U=$(usdc)
+  fi
+  echo "sponsor welcome stock: $U uusdc"
+
   # The operator token: created only when absent, never printed.
   sudo install -d -o root -g root -m 755 /etc/yamale
   sudo test -s $TOKEN || (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d " \n" | sudo tee $TOKEN >/dev/null)
@@ -125,7 +149,7 @@ Wants=network-online.target
 [Service]
 User=yamale-traceability
 Group=yamale-traceability
-ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
+ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --welcome 10000000000uusdc --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
 Restart=always
 RestartSec=5
 MemoryMax=256M

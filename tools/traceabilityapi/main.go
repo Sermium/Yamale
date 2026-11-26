@@ -52,6 +52,8 @@ type server struct {
 	sponsorDenom string
 
 	granter       Granter // nil: sponsoring is off
+	welcome       string  // devnet only: coins each newly sponsored account receives; empty is none
+	sender        Sender  // pays the welcome
 	sponsorDaily  int
 	operatorToken string // empty: the application list is off
 	mu            sync.Mutex
@@ -83,6 +85,7 @@ func main() {
 	lifetime := flag.Duration("sponsor-for", 365*24*time.Hour, "how long an allowance lasts")
 	fees := flag.String("fees", "0uyml", "fee the sponsor pays per grant")
 	daily := flag.Int("sponsor-daily", 200, "most accounts sponsored in any 24 hours")
+	welcome := flag.String("welcome", "", "devnet only: coins sent to each newly sponsored account, e.g. 10000000000uusdc; empty sends none")
 	floor := flag.String("sponsor-floor", "10000000uyml", "below this sponsor balance /v1/health/sponsor answers 503")
 	tokenFile := flag.String("operator-token-file", "", "file holding the bearer token that lists applications; empty turns the list off")
 	keyFile := flag.String("anthropic-key-file", "", "file holding the Anthropic API key that drafts catalogue designs; empty turns drafting off")
@@ -128,6 +131,13 @@ func main() {
 		s.granter = g
 		s.sponsorDaily = *daily
 		log.Printf("sponsoring fees from %s, at most %d accounts a day", g.Address(), *daily)
+		if *welcome != "" {
+			if !welcomeAllowed(*chainID) {
+				log.Fatalf("--welcome is for devnets only, and %s does not name itself one", *chainID)
+			}
+			s.welcome, s.sender = *welcome, g
+			log.Printf("each newly sponsored account receives %s", *welcome)
+		}
 	}
 	if *tokenFile != "" {
 		raw, err := os.ReadFile(*tokenFile)

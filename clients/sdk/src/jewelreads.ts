@@ -17,7 +17,7 @@ import {
   QueryJewelsByInscriptionResponse, QueryListingsRequest, QueryListingsResponse, QueryParamsRequest, QueryParamsResponse,
 } from './generated/blockchain/jewel/v1/query.ts';
 import { QueryNFTsRequest, QueryNFTsResponse } from './generated/cosmos/nft/v1beta1/query.ts';
-import { QueryBalanceRequest, QueryBalanceResponse } from './generated/cosmos/bank/v1beta1/query.ts';
+import { QueryAllBalancesRequest, QueryAllBalancesResponse, QueryBalanceRequest, QueryBalanceResponse } from './generated/cosmos/bank/v1beta1/query.ts';
 import { QueryAllowanceRequest, QueryAllowanceResponse } from './generated/cosmos/feegrant/v1beta1/query.ts';
 
 const SVC = '/blockchain.jewel.v1.Query';
@@ -195,6 +195,20 @@ export async function bankBalance(address: string, denom: string): Promise<Outco
     (b) => QueryBalanceResponse.decode(b));
   if (!out.ok) return out;
   return { ok: true, height: out.height, value: out.value.balance?.amount ?? '0' };
+}
+
+/**
+ * Everything one account holds. The chain returns denoms in alphabetical
+ * order; callers sort for display.
+ * The fee token is left in; a purse decides what to show.
+ */
+export async function bankBalances(address: string): Promise<Outcome<{ denom: string; amount: string }[]>> {
+  const out = decoded(
+    await abciQuery('/cosmos.bank.v1beta1.Query/AllBalances',
+      QueryAllBalancesRequest.encode(QueryAllBalancesRequest.fromPartial({ address, pagination: { limit: '200' } })).finish()),
+    (b) => QueryAllBalancesResponse.decode(b));
+  if (!out.ok) return out;
+  return { ok: true, height: out.height, value: out.value.balances.map((c) => ({ denom: c.denom, amount: c.amount })) };
 }
 
 export function claimSearchQuery(address: string): string {

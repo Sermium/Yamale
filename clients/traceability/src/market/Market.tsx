@@ -8,9 +8,12 @@ import { chainHead, readJewelers, readListings, resolveDenom, t } from '@yamale/
 
 import { AppBar, Loading, Problem, useLoad } from '../ui.tsx';
 import { JewelCard } from '../verify/JewelCard.tsx';
+import { useSession } from '../account/session.tsx';
 import { money } from './money.ts';
+import { Purse } from './Purse.tsx';
 
 export function Market() {
+  const session = useSession();
   const [listings] = useLoad(() => readListings(), []);
   const [jewelers] = useLoad(() => readJewelers(), []);
   const [head] = useLoad(() => chainHead(), []);
@@ -31,6 +34,7 @@ export function Market() {
       {bar}
       <main className="y-screen">
         <p className="lede">{t('traceability.marketLede')}</p>
+        {session.address && <Purse address={session.address} />}
         {listings.value.length > 0 && (
           <div className="actions">
             <select className="bigfield" value={jeweler} onChange={(e) => setJeweler(e.target.value)} aria-label={t('traceability.marketJeweler')}>

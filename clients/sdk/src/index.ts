@@ -364,7 +364,7 @@ export {
 export { setRpcBase, abciQuery, decoded, chainHead, txSearch, type Outcome, type ChainHead, type TxHit, type TxEvent } from './abci.ts';
 export {
   readJewel, readJeweler, readJewelers, readJewelParams, findByInscription, jewelsHeldBy,
-  offerSearchQuery, offersAddressedTo, claimsByJeweler, claimSearchQuery, claimsFiledBy, readListings, bankBalance, feeAllowanceExists, tokenToJewelId, isActive, roleOf, type JewelView,
+  offerSearchQuery, offersAddressedTo, claimsByJeweler, claimSearchQuery, claimsFiledBy, readListings, bankBalance, bankBalances,feeAllowanceExists, tokenToJewelId, isActive, roleOf, type JewelView,
 } from './jewelreads.ts';
 export { JewelerStatus, type Jewel, type Jeweler, type Benefit, type Offer, type Reassignment, type Amendment, type Claim, type Card, type Listing } from './generated/blockchain/jewel/v1/jewel.ts';
 export { traceabilitySignBytes, sha256Hex, signedHeaders, type TraceabilityPurpose } from './traceabilityauth.ts';

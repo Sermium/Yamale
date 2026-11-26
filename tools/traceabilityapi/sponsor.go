@@ -62,6 +62,8 @@ type sponsorRecord struct {
 	// List is the ownerList version granted; 0 in records written before it
 	// existed, which means version 1.
 	List int `json:"list,omitempty"`
+	// Welcome is the transaction that paid the devnet welcome, if one did.
+	Welcome string `json:"welcome,omitempty"`
 }
 
 func (s *server) ledgerPath() string { return filepath.Join(s.dir, "sponsored.json") }
@@ -139,13 +141,27 @@ func (s *server) handleSponsor(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusBadGateway, "the grant did not go through; try again later")
 		return
 	}
-	ledger = append(ledger, sponsorRecord{Address: address, Tx: tx, At: s.now().Unix(), List: ownerList})
+	rec := sponsorRecord{Address: address, Tx: tx, At: s.now().Unix(), List: ownerList}
+	// The welcome is a convenience: an account sponsored without it is still
+	// sponsored, so a failed payment is logged rather than refused.
+	if s.welcome != "" && s.sender != nil {
+		if wtx, werr := s.sender.Send(r.Context(), address, s.welcome); werr != nil {
+			log.Printf("traceabilityapi: welcome to %s failed: %v", address, werr)
+		} else {
+			rec.Welcome = wtx
+		}
+	}
+	ledger = append(ledger, rec)
 	out, _ := json.MarshalIndent(ledger, "", " ")
 	if err := writeAtomically(s.ledgerPath(), out); err != nil {
 		serverFault(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"granted": true, "tx": tx, "granter": s.granter.Address()})
+	body := map[string]any{"granted": true, "tx": tx, "granter": s.granter.Address()}
+	if rec.Welcome != "" {
+		body["welcome"] = rec.Welcome
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // regrant widens the allowance of the account at ledger[i]. It does not count

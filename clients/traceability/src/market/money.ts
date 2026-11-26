@@ -1,5 +1,8 @@
 import { formatAmount } from '@yamale/chain';
 
+/** Where money is added to, or taken out of, an account. */
+export const PAY_APP = 'https://pay.yamaletech.com';
+
 /** A price as people read it: `1 200 USD`, rounded the way the currency is quoted. */
 export function money(c: { denom: string; amount: string }): string {
   return formatAmount(c.amount, c.denom);

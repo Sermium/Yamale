@@ -15,6 +15,7 @@ import { t } from '@yamale/chain';
 import { QrCode } from '../../../app/src/qr.tsx';
 import { BusinessMoveInvite } from '../atelier/shop/BusinessMove.tsx';
 import { SERVICES } from '../config.ts';
+import { Purse } from '../market/Purse.tsx';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
 import { AppBar, Section } from '../ui.tsx';
@@ -438,6 +439,8 @@ export function AccountScreen() {
               </div>
             </div>
           </header>
+
+          <Purse address={a.address} />
 
           {/* A shop moving to this account is offered here: until it accepts, the account has no Atelier tab to find it in. */}
           <BusinessMoveInvite me={a.address} onDone={() => window.location.assign('/atelier')} />

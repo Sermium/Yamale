@@ -12,9 +12,7 @@ import { UnlockGate } from '../account/Account.tsx';
 import { useSession } from '../account/session.tsx';
 import { ActionStatus, useAction } from '../actions/useAction.tsx';
 import { Section, useLoad } from '../ui.tsx';
-import { money, shortfall } from './money.ts';
-
-const PAY_APP = 'https://pay.yamaletech.com';
+import { money, PAY_APP, shortfall } from './money.ts';
 
 export function BuyPanel({ view }: { view: JewelView }) {
   const listing = view.listing;
