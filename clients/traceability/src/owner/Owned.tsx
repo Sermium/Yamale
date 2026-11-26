@@ -162,7 +162,7 @@ export function Owned() {
         <Link className="btn" to={publicPage}>{t('traceability.seePublicPage')}</Link>
         {jeweler?.ok && v.owner === jeweler.value.business ? (
           // The shop's own account holds its stock: that is managed in the Atelier, not owned like a bought piece.
-          <p className="note">{t('traceability.cardShopAccount')} <Link to={`/atelier/jewel/${v.jewel.id}`}>{t('traceability.navAtelier')}</Link></p>
+          <p className="note">{t('traceability.ownedIsStock')} <Link to={`/atelier/jewel/${v.jewel.id}`}>{t('traceability.navAtelier')}</Link></p>
         ) : v.owner !== session.address ? (
           <p className="note">{t('traceability.notYours')}</p>
         ) : (
