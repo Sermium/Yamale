@@ -28,10 +28,14 @@ import { deviceLabel, signIn as servicesSignIn, startSignIn, type SignInFailure 
 import { canonicalEmail } from '../../wallet/src/account/deposit.ts';
 import { enrol, privateKeyFromMnemonic, servicesAvailable, type Services } from '../../wallet/src/account/enrol.ts';
 import { rememberEnrolment } from '../../wallet/src/account/stored.ts';
+import { fullName, readMyPerson, requestOnboarding, savePerson } from '../../shared/account/people.ts';
 import { signRequest, signRequestWithKey, type Signed } from './signing.ts';
 
 /** The account services, reached through this host like every Yamale app. */
 const SERVICES: Services = { custodianUrl: '/api/custodian', recoveryUrl: '/api/recovery' };
+
+/** The chain the account services and the accounts API sign for. */
+const CHAIN_ID = 'yamale-devnet-2';
 
 /** Where this app kept its own accounts before they were shared. */
 const STORE = 'yamale.app.account';
@@ -118,6 +122,20 @@ export type SignInStep =
   | { kind: 'code'; factor: 'totp' | 'email'; email: string; password: string; nonce?: string; issued?: number; previous?: Previous }
   | { kind: 'failed'; reason: SignInFailure | 'no-account' | 'email-in-use' | 'device-taken' };
 
+/** What a new account says about the person, kept in the shared profile. */
+export interface Details { firstName: string; lastName: string; country: string; birthDate?: string }
+
+/**
+ * The name to show, from the profile every Yamale app shares; the name this
+ * device remembers, or the email, when the profile cannot be read.
+ */
+async function nameFor(privateKey: Uint8Array, address: string, email: string): Promise<string> {
+  const r = await readMyPerson(privateKey, address, CHAIN_ID).catch(() => null);
+  const name = r && r.ok ? fullName(r.value) : null;
+  if (name) { rememberName(address, name); return name; }
+  return nameOf(address, email);
+}
+
 async function fromKey(privateKey: Uint8Array, profile: Profile): Promise<Signer> {
   const wallet = await DirectSecp256k1Wallet.fromKey(privateKey, 'yml');
   return new Signer(profile, wallet, privateKey);
@@ -127,11 +145,18 @@ function previousOf(legacy: Legacy): Previous {
   return { signer: new Signer(legacy.profile, legacy.wallet, null), forget: () => dropLegacy(legacy) };
 }
 
-/** A new account, enrolled with the services so it opens in every Yamale app. */
-export async function signUp(profile: Profile, password: string): Promise<Signer> {
+/**
+ * A new account, enrolled with the services so it opens in every Yamale app,
+ * with its profile saved where every app reads it and its country recorded so
+ * the chain can issue its identifier. The last two are best effort: an account
+ * without them still works, and the profile can be completed later.
+ */
+export async function signUp(email: string, details: Details, password: string): Promise<Signer> {
   if (readAccount()) throw new Error('device-taken');
-  const made = await createAccount(profile.email, password);
-  rememberName(made.account.address, profile.name);
+  const made = await createAccount(email, password);
+  const name = `${details.firstName.trim()} ${details.lastName.trim()}`.trim();
+  const profile: Profile = { name, email: made.account.email };
+  rememberName(made.account.address, name);
   if (await servicesAvailable(SERVICES)) {
     const done = await enrol(made.privateKey, made.account.email, password, SERVICES);
     if (protectionOutcome(done) === 'email-in-use') {
@@ -142,7 +167,12 @@ export async function signUp(profile: Profile, password: string): Promise<Signer
     rememberEnrolment({ address: done.address, email: made.account.email, holding: done.deviceHolding, enrolledAt: new Date().toISOString() });
     updateAccount({ protection: 'enrolled' });
   }
-  return fromKey(made.privateKey, { ...profile, email: made.account.email });
+  const address = made.account.address;
+  await savePerson(made.privateKey, address, {
+    first_name: details.firstName.trim(), last_name: details.lastName.trim(), birth_date: details.birthDate ?? '',
+  }, CHAIN_ID).catch(() => undefined);
+  if (details.country) await requestOnboarding(made.privateKey, address, details.country, CHAIN_ID).catch(() => undefined);
+  return fromKey(made.privateKey, profile);
 }
 
 /**
@@ -156,7 +186,7 @@ export async function signIn(email: string, password: string): Promise<SignInSte
   if (local && local.email === canonical) {
     try {
       const key = await unlockAccount(local, password);
-      return { kind: 'done', signer: await fromKey(key, { name: nameOf(local.address, local.email), email: local.email }) };
+      return { kind: 'done', signer: await fromKey(key, { name: await nameFor(key, local.address, local.email), email: local.email }) };
     } catch (err) {
       if (err instanceof WrongPassword) return { kind: 'failed', reason: 'wrong' };
       throw err;
@@ -212,7 +242,7 @@ export async function finishSignIn(step: Extract<SignInStep, { kind: 'code' }>, 
     await adoptKey(out.privateKey, step.email, step.password);
     updateAccount({ protection: 'enrolled' });
   }
-  const signer = await fromKey(out.privateKey, { name: nameOf(out.address, step.email), email: step.email });
+  const signer = await fromKey(out.privateKey, { name: await nameFor(out.privateKey, out.address, step.email), email: step.email });
   return { kind: 'done', signer, ...(step.previous ? { previous: step.previous } : {}) };
 }
 

@@ -6,6 +6,9 @@
 
 import { sha256Hex, signedHeaders, type TraceabilityPurpose } from '../../sdk/src/traceabilityauth.ts';
 import type { VaultRead } from './card/vault.ts';
+
+// The profile and onboarding are the accounts API, shared by every Yamale app.
+export { lookupPerson, readMyPerson, requestOnboarding, savePerson, type Person } from '../../shared/account/people.ts';
 import type { Stone } from './verify/record.ts';
 
 // Not imported from config.ts: that module reads `window` when it loads, and
@@ -115,50 +118,6 @@ export async function requestSponsorship(key: Uint8Array, address: string, chain
   } catch (err) {
     return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
   }
-}
-
-/**
- * Ask the onboarding participant to register this account as its customer and
- * record the country the person chose, so the chain can issue the account its
- * identifier. Devnet only; signed over "<address>:<country>".
- */
-export async function requestOnboarding(key: Uint8Array, address: string, country: string, chainId: string):
-  Promise<{ ok: true; participant: string } | { ok: false; status: number; error: string }> {
-  try {
-    const res = await fetch(`${API}/v1/onboard`, {
-      method: 'POST',
-      headers: { ...signedHeaders(key, 'onboard', chainId, `${address}:${country}`), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ country }),
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, status: res.status, error: String(body.error ?? '') };
-    return { ok: true, participant: String(body.participant) };
-  } catch (err) {
-    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-/* ------------------------------------------------------------ people */
-
-export interface Person { first_name: string; last_name: string; birth_date?: string }
-
-/** This account's own record, date of birth included; null when it has none yet. */
-export async function readMyPerson(key: Uint8Array, address: string, chainId: string): Promise<ApiResult<Person | null>> {
-  const r = await apiCall<Person>('/v1/people/me', { headers: signedHeaders(key, 'person-read', chainId, address) }, json);
-  return !r.ok && r.status === 404 ? { ok: true, value: null } : r;
-}
-
-/** Save this account's name and date of birth. Signed over the address and the exact body. */
-export function savePerson(key: Uint8Array, address: string, p: Person, chainId: string) {
-  const bytes = utf8.encode(JSON.stringify(p));
-  return signedSend('PUT', '/v1/people/me', key, 'person-save', `${address}.${sha256Hex(bytes)}`, bytes, chainId);
-}
-
-/** The name behind another account, for a member of the app; null when it has none. */
-export async function lookupPerson(key: Uint8Array, target: string, chainId: string): Promise<{ first_name: string; last_name: string } | null> {
-  const r = await apiCall<{ first_name: string; last_name: string }>(`/v1/people/${target}`,
-    { headers: signedHeaders(key, 'person-lookup', chainId, target) }, json);
-  return r.ok ? r.value : null;
 }
 
 /**

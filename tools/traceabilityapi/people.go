@@ -6,8 +6,8 @@ package main
 // Kept here and never on the chain: a public chain cannot forget, and a name
 // and a date of birth are exactly what a person may later want removed.
 // Only the account itself writes its record, signed with its key. The name is
-// readable by any account of the app (any sponsored account, or a member of a
-// jeweler's staff), which is what the owner decided on 2026-11-26; the date of
+// readable by any account of the Yamale apps (one with a profile, onboarded,
+// sponsored, or on a jeweler's staff), as the owner decided on 2026-11-26; the date of
 // birth is returned to the account alone. The country is not here: x/alias
 // records it, and the identifier carries it.
 
@@ -148,9 +148,22 @@ func (s *server) handlePersonMine(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, p)
 }
 
-// isMember: the reader is an account of the app, sponsored by it or on a
-// jeweler's staff. A key anybody can make is not enough to read names.
+// isMember: the reader is an account of the Yamale apps: one that keeps a
+// profile here, was onboarded, was sponsored, or is on a jeweler's staff. A key
+// anybody can make, with none of those, is not enough to read names.
 func (s *server) isMember(r *http.Request, address string) (bool, error) {
+	if _, found, err := s.loadPerson(address); err != nil || found {
+		return found, err
+	}
+	onboarded, err := s.readOnboarded()
+	if err != nil {
+		return false, err
+	}
+	for _, rec := range onboarded {
+		if rec.Address == address {
+			return true, nil
+		}
+	}
 	ledger, err := s.readLedger()
 	if err != nil {
 		return false, err

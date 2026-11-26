@@ -90,3 +90,12 @@ func TestARecordIsBoundToItsBodyAndItsSigner(t *testing.T) {
 	w := serve(s, sign(t, request("PUT", "/v1/people/me", other), k, "person-save", addrOf(k)+"."+hex.EncodeToString(sum[:]), testNow.Unix()))
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 }
+
+func TestAnAccountWithAProfileReadsNames(t *testing.T) {
+	s := testServer(t)
+	require.Equal(t, http.StatusOK, putPerson(t, s, "awa", person{FirstName: "Awa", LastName: "Diop"}))
+	require.Equal(t, http.StatusOK, putPerson(t, s, "pay-user", person{FirstName: "Kofi", LastName: "Mensah"}))
+	code, out := lookup(t, s, "pay-user", addrOf(testKey("awa")))
+	require.Equal(t, http.StatusOK, code)
+	require.Equal(t, "Awa", out["first_name"])
+}

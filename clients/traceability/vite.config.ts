@@ -20,6 +20,8 @@ export default defineConfig({
     proxy: {
       '/api/rpc': { target: process.env.YAMALE_RPC ?? 'http://127.0.0.1:26957', changeOrigin: true, rewrite: strip('/api/rpc') },
       '/api/traceability': { target: process.env.TRACEABILITY_API ?? 'http://127.0.0.1:8095', changeOrigin: true, rewrite: strip('/api/traceability') },
+      // The accounts API is served by the same process as the traceability API.
+      '/api/accounts': { target: process.env.TRACEABILITY_API ?? 'http://127.0.0.1:8095', changeOrigin: true, rewrite: strip('/api/accounts') },
       '/api/custodian': { target: process.env.YAMALE_CUSTODIAN ?? 'http://127.0.0.1:8099', changeOrigin: true, rewrite: strip('/api/custodian') },
       '/api/recovery': { target: process.env.YAMALE_RECOVERY ?? 'http://127.0.0.1:8100', changeOrigin: true, rewrite: strip('/api/recovery') },
     },

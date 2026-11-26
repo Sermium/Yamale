@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
+import { countryNames, guessCountry } from '../../shared/account/countries.ts';
 
 import {
   checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, signIn, signOut, signUp,
@@ -203,7 +204,10 @@ function MovePrevious({ previous, signer, onDone }: { previous: Previous; signer
 
 function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) => void }) {
   const [mode, setMode] = useState<'in' | 'up'>(lastEmail() ? 'in' : 'up');
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [country, setCountry] = useState(guessCountry);
+  const [birthDate, setBirthDate] = useState('');
   const [email, setEmail] = useState(lastEmail() ?? '');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -278,7 +282,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
       // The password unlocked the account; the second factor decides whether
       // this session gets it. Holding the signer here rather than passing it up
       // means a half-finished sign-in cannot spend anything.
-      if (mode === 'up') afterPassword(await signUp({ name, email }, password));
+      if (mode === 'up') afterPassword(await signUp(email, { firstName, lastName, country, birthDate }, password));
       else handle(await signIn(email, password));
     } catch (err) {
       const m = String(err);
@@ -379,16 +383,34 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
       <p className="muted">{t('app.sharedAccountNote')}</p>
 
       <form onSubmit={submit} className="form">
-        {mode === 'up' && (
+        {mode === 'up' && (<>
           <label>
-            <span>{t('app.name')}</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
+            <span>{t('app.firstName')}</span>
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} required maxLength={60} autoComplete="given-name" />
           </label>
-        )}
+          <label>
+            <span>{t('app.lastName')}</span>
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} required maxLength={60} autoComplete="family-name" />
+          </label>
+        </>)}
         <label>
           <span>{t('app.email')}</span>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
         </label>
+        {mode === 'up' && (<>
+          <label>
+            <span>{t('app.country')}</span>
+            <select value={country} onChange={(e) => setCountry(e.target.value)} required>
+              <option value="">{t('app.countryChoose')}</option>
+              {countryNames(getLocale()).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>{t('app.birthDateOptional')}</span>
+            <input type="date" value={birthDate} min="1900-01-01" max={new Date().toISOString().slice(0, 10)}
+                   onChange={(e) => setBirthDate(e.target.value)} autoComplete="bday" />
+          </label>
+        </>)}
         <label>
           <span>{t('app.password')}</span>
           <input

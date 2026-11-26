@@ -19,6 +19,7 @@ export default defineConfig({
       // The account services, shared by every Yamale app, reached as in production.
       '/api/custodian': { target: process.env.YAMALE_ACCOUNTS ?? 'https://pay.yamaletech.com', changeOrigin: true },
       '/api/recovery': { target: process.env.YAMALE_ACCOUNTS ?? 'https://pay.yamaletech.com', changeOrigin: true },
+      '/api/accounts': { target: process.env.YAMALE_ACCOUNTS ?? 'https://pay.yamaletech.com', changeOrigin: true },
       '/api/rest': {
         target: process.env.YAMALE_REST ?? 'http://localhost:1317',
         changeOrigin: true,
