@@ -40,3 +40,18 @@
   background: var(--accent); color: var(--accent-ink); font-weight: 700; flex: none; }
 .handoff__email { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 .handoff__origin { margin: 0; font-family: var(--font-mono); font-size: var(--step--1); color: var(--text-muted); }
+
+/* The second step: one card per method, the current one marked, a QR when an authenticator is added. */
+.twostep { display: grid; gap: var(--sp-3); padding-block-start: var(--sp-4); border-block-start: 1px solid var(--rule); }
+.twostep__title { margin: 0; font-family: var(--font-display); font-size: var(--step-1); }
+.methods { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.method { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 1px solid var(--rule);
+  border-radius: 12px; background: var(--surface); }
+.method--current { border-color: var(--accent); }
+.method__text { flex: 1; min-inline-size: 0; display: grid; gap: 2px; }
+.method__name { margin: 0; font-weight: 600; }
+.method__badge { font-family: var(--font-mono); font-size: var(--step--1); color: var(--accent); white-space: nowrap; }
+.method__use { inline-size: auto; min-block-size: 40px; flex: none; }
+.qr { display: grid; place-items: center; padding: var(--sp-3); background: #fff; border-radius: 12px; justify-self: center; }
+.secret { font-family: var(--font-mono); font-size: var(--step--1); overflow-wrap: anywhere; padding: var(--sp-2); border-radius: var(--radius);
+  background: var(--wash-mute); }

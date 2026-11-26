@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base32"
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -37,7 +38,13 @@ import (
 //
 //	POST /v1/factors            email + password -> what is enrolled
 //	POST /v1/factors/totp/begin email + password -> a secret and an otpauth URI
-//	POST /v1/factors/totp/confirm email + password + code -> armed
+//	POST /v1/factors/totp/confirm email + password + code [+ proof] -> armed
+//	POST /v1/factors/choose     email + password + proof + factor [+ pin] -> chosen
+//
+// A proof is the CURRENT factor answered (an emailed code with its nonce, an
+// authenticator code, or the PIN). Choosing, and confirming an authenticator
+// that is to become the chosen factor, need one: without it the password alone
+// would be enough to swap the account's factor for a weaker one.
 
 type factorRequest struct {
 	Email    string `json:"email"`
@@ -48,13 +55,30 @@ type factorRequest struct {
 	// entry in their authenticator rather than two. It is no weaker than a
 	// secret this service picks: the device is shown the secret either way.
 	Secret string `json:"secret"`
+	// Factor, on choose, is the factor to use from now on: email, totp or pin.
+	Factor string `json:"factor"`
+	// PIN, on choose with factor pin, is the new PIN.
+	PIN string `json:"pin"`
+	// Proof is the current factor, answered.
+	Proof *factorProof `json:"proof"`
+}
+
+type factorProof struct {
+	Factor string `json:"factor"`
+	Answer string `json:"answer"`
+	Nonce  string `json:"nonce"`
+	Issued int64  `json:"issued"`
 }
 
 type factorState struct {
-	// Strongest is what a recovery will demand. Always populated: the email
-	// code is the floor, so there is always something.
+	// Strongest is what a recovery and a sign-in will demand: the chosen
+	// factor, or the strongest enrolled. Always populated: the email code is
+	// the floor, so there is always something. (Named before factors could be
+	// chosen; Current says the same.)
 	Strongest string `json:"strongest"`
+	Current   string `json:"current"`
 	TOTP      bool   `json:"totp"`
+	PIN       bool   `json:"pin"`
 	Passkey   bool   `json:"passkey"`
 }
 
@@ -190,6 +214,18 @@ func (s *server) handleTOTPConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// With a proof of the current factor the authenticator also becomes the
+	// chosen one. Without it, it counts only for an account that never chose
+	// (the strongest wins there, as before); a chosen factor stays chosen.
+	if req.Proof != nil {
+		proved, ok := s.verifyProof(w, account, req.Email, enrolled, req.Proof)
+		if !ok {
+			return
+		}
+		enrolled = proved
+		enrolled.Preferred = FactorTOTP
+		enrolled.PINHash, enrolled.PINSalt = nil, nil
+	}
 	enrolled.TOTPConfirmed = true
 	if err := s.store.SetFactors(account.Index, enrolled); err != nil {
 		refuse(w, http.StatusInternalServerError, err.Error())
@@ -206,9 +242,100 @@ func base32Secret(secret []byte) string {
 }
 
 func stateOf(e Enrolled) factorState {
+	current := string(Required(e))
 	return factorState{
-		Strongest: string(e.Strongest()),
-		TOTP:      e.TOTPConfirmed && len(e.TOTPSecret) > 0,
+		Strongest: current,
+		Current:   current,
+		TOTP:      e.HasTOTP(),
+		PIN:       e.HasPIN(),
 		Passkey:   len(e.PasskeyCredentialID) > 0,
 	}
+}
+
+// verifyProof checks the current factor, answered, and spends an emailed code.
+// It writes the refusal itself, so a caller returns when it is not ok.
+func (s *server) verifyProof(w http.ResponseWriter, account Account, email string, enrolled Enrolled, p *factorProof) (Enrolled, bool) {
+	if p == nil || strings.TrimSpace(p.Answer) == "" {
+		refuse(w, http.StatusForbidden, "answer the factor this account uses now before changing it")
+		return enrolled, false
+	}
+	now := s.clock()
+	var pending *EmailCode
+	if s.codes != nil && FactorKind(p.Factor) == FactorEmail {
+		pending = s.codes.pending(email, p.Nonce, p.Issued, now)
+	}
+	updated, err := VerifyFactor(enrolled, FactorKind(p.Factor), strings.TrimSpace(p.Answer), now, pending)
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrFactorDowngrade):
+		refuse(w, http.StatusForbidden, "answer with the factor this account uses now: "+string(Required(enrolled)))
+		return enrolled, false
+	default:
+		if errors.Is(err, ErrFactorWrong) {
+			// As in a sign-in: a wrong code costs what a wrong password costs.
+			s.attempts.failed(account.Index, now)
+		}
+		refuse(w, http.StatusUnauthorized, "that code does not open this account's factor")
+		return enrolled, false
+	}
+	if pending != nil {
+		s.codes.spend(p.Nonce, now)
+	}
+	return updated, true
+}
+
+// handleFactorChoose sets the factor the account answers with: the emailed
+// code, a PIN (set here), or an authenticator already confirmed.
+func (s *server) handleFactorChoose(w http.ResponseWriter, r *http.Request) {
+	account, req, ok := s.authFactor(w, r)
+	if !ok {
+		return
+	}
+	enrolled, err := s.store.Factors(account)
+	if err != nil {
+		refuse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	target := FactorKind(strings.TrimSpace(req.Factor))
+	switch target {
+	case FactorEmail, FactorPIN:
+	case FactorTOTP:
+		if !enrolled.HasTOTP() {
+			refuse(w, http.StatusConflict, "confirm an authenticator first, at /v1/factors/totp/begin and /confirm")
+			return
+		}
+	default:
+		refuse(w, http.StatusBadRequest, "factor is email, totp or pin")
+		return
+	}
+	if target == FactorPIN && !validPIN(req.PIN) {
+		refuse(w, http.StatusBadRequest, ErrPINShape.Error())
+		return
+	}
+	proved, ok := s.verifyProof(w, account, req.Email, enrolled, req.Proof)
+	if !ok {
+		return
+	}
+	enrolled = proved
+	switch target {
+	case FactorEmail:
+		// Leaving the authenticator and the PIN behind: re-enrolling one later
+		// starts from a fresh secret.
+		enrolled.TOTPSecret, enrolled.TOTPConfirmed = nil, false
+		enrolled.PINHash, enrolled.PINSalt = nil, nil
+	case FactorPIN:
+		if enrolled, err = enrolled.SetPIN(req.PIN); err != nil {
+			refuse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		enrolled.TOTPSecret, enrolled.TOTPConfirmed = nil, false
+	case FactorTOTP:
+		enrolled.PINHash, enrolled.PINSalt = nil, nil
+	}
+	enrolled.Preferred = target
+	if err := s.store.SetFactors(account.Index, enrolled); err != nil {
+		refuse(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respond(w, stateOf(enrolled))
 }

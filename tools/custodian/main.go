@@ -284,6 +284,8 @@ func main() {
 	guarded.Handle("POST /v1/factors", fast(s.handleFactors))
 	guarded.HandleFunc("POST /v1/factors/totp/begin", s.handleTOTPBegin)
 	guarded.HandleFunc("POST /v1/factors/totp/confirm", s.handleTOTPConfirm)
+	// Choosing the factor, or setting a PIN, needs the current factor answered.
+	guarded.HandleFunc("POST /v1/factors/choose", s.handleFactorChoose)
 	guarded.Handle("GET /v1/recovery/statistics", fast(s.handleRecoveryStatistics))
 	// Enrolment keeps the generous bound. It is one request now, but it still
 	// pays for an Argon2id derivation at 64 MiB for the password verifier,

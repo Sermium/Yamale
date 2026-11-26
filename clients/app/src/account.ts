@@ -119,7 +119,7 @@ export type SignInStep =
   /** Signed in. `previous` is an old account of this app whose balance can be moved across. */
   | { kind: 'done'; signer: Signer; previous?: Previous }
   /** The services want a code (a new device): from the authenticator app, or emailed. */
-  | { kind: 'code'; factor: 'totp' | 'email'; email: string; password: string; nonce?: string; issued?: number; previous?: Previous }
+  | { kind: 'code'; factor: 'totp' | 'email' | 'pin'; email: string; password: string; nonce?: string; issued?: number; previous?: Previous }
   | { kind: 'failed'; reason: SignInFailure | 'no-account' | 'email-in-use' | 'device-taken' };
 
 /** What a new account says about the person, kept in the shared profile. */

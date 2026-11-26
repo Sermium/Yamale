@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
 import { countryNames, guessCountry } from '../../shared/account/countries.ts';
-import { canSignInWithYamale, handoffOutcome, signInWithYamale, takeHandoffKey } from '../../shared/account/handoff.ts';
+import { ACCOUNTS_ORIGIN, ACCOUNTS_PATH, canSignInWithYamale, handoffOutcome, signInWithYamale, takeHandoffKey } from '../../shared/account/handoff.ts';
 
 import {
   checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, signerFromHandoff, signIn, signOut, signUp,
@@ -366,12 +366,12 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
       <div className="welcome">
         <img className="welcome__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={56} height={56} />
         <h1>{t('app.secondStep')}</h1>
-        <p className="muted">{t(codeStep.factor === 'email' ? 'app.codeEmailed' : 'app.codeAuthenticator', { email: codeStep.email })}</p>
+        <p className="muted">{codeStep.factor === 'pin' ? t('account.pinAsk') : t(codeStep.factor === 'email' ? 'app.codeEmailed' : 'app.codeAuthenticator', { email: codeStep.email })}</p>
         <form onSubmit={submitCode} className="form">
           <label>
             <span>{t('app.sixDigits')}</span>
-            <input inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} autoFocus
-                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} />
+            <input inputMode="numeric" autoComplete="one-time-code" maxLength={12} value={code} autoFocus
+                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 12))} />
           </label>
           {error && <p className="notice notice--bad">{error}</p>}
           <button className="primary" disabled={busy || code.length < 6}>{busy ? t('app.checking') : t('app.confirm')}</button>
@@ -1202,6 +1202,12 @@ function Settings({ signer, onClosed }: { signer: Signer; onClosed: () => void }
       </div>
       <p className="muted small-note">{expert ? t('app.modeExpertNote') : t('app.modeSimpleNote')}</p>
 
+
+      <div className="card">
+        <strong>{t('account.securityLink')}</strong>
+        <p className="muted">{t('account.securityLinkSub')}</p>
+        <a className="ghost" href={ACCOUNTS_ORIGIN + ACCOUNTS_PATH}>{t('account.twoStepOpen')}</a>
+      </div>
 
       {/* Kept next to the switch that reveals them. Expert mode is the door;
           these are what is behind it. */}

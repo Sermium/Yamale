@@ -19,7 +19,7 @@ import { Purse } from '../market/Purse.tsx';
 import { ProfileCode } from './names.tsx';
 import { claimIdentifier, CountrySelect, guessCountry } from './identifier.tsx';
 import { ProfileSection } from './profile.tsx';
-import { canSignInWithYamale, handoffOutcome, signInWithYamale } from '../../../shared/account/handoff.ts';
+import { ACCOUNTS_ORIGIN, ACCOUNTS_PATH, canSignInWithYamale, handoffOutcome, signInWithYamale } from '../../../shared/account/handoff.ts';
 import { savePerson } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
@@ -182,7 +182,7 @@ export function AuthenticatorSetup({ email, password, onDone }: { email: string;
 
 type SignInStep =
   | { kind: 'creds' }
-  | { kind: 'code'; factor: 'totp' }
+  | { kind: 'code'; factor: 'totp' | 'pin' }
   | { kind: 'code'; factor: 'email'; nonce: string; issued: number };
 
 /** Email and password, then the code: both sealed copies come back and open here. */
@@ -204,7 +204,7 @@ export function SignInForm({ onDone }: { onDone?: () => void }) {
     setBusy(false);
     if (!out.ok) { fail(out.reason, out.retryAfter); return; }
     setCode('');
-    setStep(out.factor === 'totp' ? { kind: 'code', factor: 'totp' } : { kind: 'code', factor: 'email', nonce: out.nonce, issued: out.issued });
+    setStep(out.factor === 'email' ? { kind: 'code', factor: 'email', nonce: out.nonce, issued: out.issued } : { kind: 'code', factor: out.factor });
   }
 
   async function finish() {
@@ -245,9 +245,9 @@ export function SignInForm({ onDone }: { onDone?: () => void }) {
   }
   return (
     <form className="stack" onSubmit={(e) => { e.preventDefault(); void finish(); }}>
-      <p className="hint">{step.factor === 'email' ? t('traceability.codeSentTo', { email }) : t('traceability.codeFromApp')}</p>
+      <p className="hint">{step.factor === 'email' ? t('traceability.codeSentTo', { email }) : step.factor === 'pin' ? t('account.pinAsk') : t('traceability.codeFromApp')}</p>
       <label className="y-label" htmlFor={uid + '-code'}>{t('traceability.factorAnswer')}</label>
-      <input id={uid + '-code'} className="bigfield num" inputMode="numeric" autoComplete="one-time-code" maxLength={8} autoFocus
+      <input id={uid + '-code'} className="bigfield num" inputMode="numeric" autoComplete={step.factor === 'pin' ? 'off' : 'one-time-code'} maxLength={12} autoFocus
              value={code} onChange={(e) => setCode(digits(e.target.value))} required />
       {failureNote}
       <div className="actions">
@@ -503,6 +503,12 @@ export function AccountScreen() {
 
           <MenuGroup title={t('traceability.forJewelers')}>
             <MenuLink to="/apply" icon="jewelers" tone="brass" title={t('traceability.applyLink')} sub={t('traceability.accountApplySub')} />
+          </MenuGroup>
+
+          <MenuGroup title={t('account.twoStepTitle')}>
+            {/* Kept by the account services, so it is one setting for every Yamale app, managed in one place. */}
+            <MenuButton icon="shield" title={t('account.securityLink')} sub={t('account.securityLinkSub')}
+                        onClick={() => location.assign(ACCOUNTS_ORIGIN + ACCOUNTS_PATH)} />
           </MenuGroup>
 
           <MenuGroup title={t('traceability.thisDevice')}>

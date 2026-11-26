@@ -28,6 +28,7 @@ export type SignInFailure =
 
 export type Started =
   | { ok: true; factor: 'totp' }
+  | { ok: true; factor: 'pin' }
   | { ok: true; factor: 'email'; nonce: string; issued: number }
   | { ok: false; reason: SignInFailure; retryAfter?: number; detail: string };
 
@@ -38,7 +39,7 @@ export type SignedIn =
 export interface SignInAnswer {
   email: string;
   password: string;
-  factor: 'totp' | 'email';
+  factor: 'totp' | 'email' | 'pin';
   answer: string;
   nonce?: string;
   issued?: number;
@@ -95,6 +96,7 @@ export async function startSignIn(services: Services, email: string, password: s
   const r = await post(fetchImpl, `${services.custodianUrl}/v1/signin/start`, { email: canonicalEmail(email), password, lang });
   if (r.status !== 200) return failed(r);
   if (r.body.factor === 'totp') return { ok: true, factor: 'totp' };
+  if (r.body.factor === 'pin') return { ok: true, factor: 'pin' };
   if (r.body.factor === 'email' && typeof r.body.nonce === 'string' && Number.isInteger(r.body.issued)) {
     return { ok: true, factor: 'email', nonce: r.body.nonce, issued: r.body.issued };
   }
@@ -170,11 +172,54 @@ export async function beginAuthenticator(services: Services, email: string, pass
   return { ok: true, secret, uri };
 }
 
-/** Arms the authenticator at both services with one code read off it. */
+/**
+ * Arms the authenticator at both services with one code read off it. With a
+ * proof of the factor the account uses now, it also becomes the chosen one;
+ * without, it only counts for an account that never chose.
+ */
 export async function confirmAuthenticator(services: Services, email: string, password: string, code: string,
-  fetchImpl: typeof fetch = fetch): Promise<{ ok: true } | { ok: false; reason: SignInFailure; detail: string }> {
+  fetchImpl: typeof fetch = fetch, proof?: Proof): Promise<{ ok: true } | { ok: false; reason: SignInFailure; detail: string }> {
   for (const url of [services.custodianUrl, services.recoveryUrl]) {
-    const r = await post(fetchImpl, `${url}/v1/factors/totp/confirm`, { email: canonicalEmail(email), password, code: code.trim() });
+    const r = await post(fetchImpl, `${url}/v1/factors/totp/confirm`, {
+      email: canonicalEmail(email), password, code: code.trim(), ...(proof ? { proof: wireProof(proof) } : {}),
+    });
+    if (r.status !== 200) return failed(r);
+  }
+  return { ok: true };
+}
+
+/* ------------------------------------------------------------ the two-step choice */
+
+/** The second step an account answers with: an emailed code, an authenticator, or a PIN. */
+export type Factor = 'email' | 'totp' | 'pin';
+
+export interface FactorState { current: Factor | 'passkey'; totp: boolean; pin: boolean }
+
+/** The current factor answered: what changing it requires, so a password alone cannot. */
+export interface Proof { factor: Factor; answer: string; nonce?: string; issued?: number }
+
+const wireProof = (p: Proof) => ({ factor: p.factor, answer: p.answer.trim(), nonce: p.nonce ?? '', issued: p.issued ?? 0 });
+
+/** What the account answers with now. The custodian speaks for both services. */
+export async function readFactors(services: Services, email: string, password: string,
+  fetchImpl: typeof fetch = fetch): Promise<{ ok: true; value: FactorState } | { ok: false; reason: SignInFailure; detail: string }> {
+  const r = await post(fetchImpl, `${services.custodianUrl}/v1/factors`, { email: canonicalEmail(email), password });
+  if (r.status !== 200) return failed(r);
+  const current = String(r.body.current || r.body.strongest || 'email') as FactorState['current'];
+  return { ok: true, value: { current, totp: !!r.body.totp, pin: !!r.body.pin } };
+}
+
+/**
+ * Switch the account to the emailed code, a PIN (set here), or an authenticator
+ * already confirmed, at both services. The proof is the current factor
+ * answered; an emailed one comes from startSignIn, which sends the code.
+ */
+export async function chooseFactor(services: Services, email: string, password: string, factor: Factor, proof: Proof,
+  pin = '', fetchImpl: typeof fetch = fetch): Promise<{ ok: true } | { ok: false; reason: SignInFailure; detail: string }> {
+  for (const url of [services.custodianUrl, services.recoveryUrl]) {
+    const r = await post(fetchImpl, `${url}/v1/factors/choose`, {
+      email: canonicalEmail(email), password, factor, ...(factor === 'pin' ? { pin } : {}), proof: wireProof(proof),
+    });
     if (r.status !== 200) return failed(r);
   }
   return { ok: true };

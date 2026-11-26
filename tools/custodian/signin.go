@@ -188,9 +188,12 @@ func (s *server) handleSigninStart(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	switch enrolled.Strongest() {
+	switch Required(enrolled) {
 	case FactorTOTP:
 		respond(w, signinStartResponse{Factor: string(FactorTOTP)})
+		return
+	case FactorPIN:
+		respond(w, signinStartResponse{Factor: string(FactorPIN)})
 		return
 	case FactorPasskey:
 		refuse(w, http.StatusServiceUnavailable, "this account's second factor is a passkey, which this service cannot check yet")
@@ -273,7 +276,7 @@ func (s *server) handleSignin(w http.ResponseWriter, r *http.Request) {
 			refuse(w, http.StatusUnauthorized, "that code has expired or was already used; ask for a new one")
 			return
 		}
-		refuse(w, factorStatus(err), factorReason(err, enrolled.Strongest()))
+		refuse(w, factorStatus(err), factorReason(err, Required(enrolled)))
 		return
 	}
 	if pending != nil {

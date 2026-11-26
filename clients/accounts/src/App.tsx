@@ -17,6 +17,7 @@ import { adoptKey, forgetAccount, readAccount, updateAccount, type StoredAccount
 import { APPS, appOrigin, sealForApp } from '../../shared/account/handoff.ts';
 import { deviceLabel, signIn, startSignIn, type SignInFailure, type Started } from '../../shared/account/signin.ts';
 import type { Services } from '../../wallet/src/account/enrol.ts';
+import { TwoStep } from './TwoStep.tsx';
 import { PasswordField } from '../../shared/account/PasswordField.tsx';
 
 const SERVICES: Services = { custodianUrl: '/api/custodian', recoveryUrl: '/api/recovery' };
@@ -86,10 +87,10 @@ function SignIn({ onDone }: { onDone: (a: StoredAccount, key: Uint8Array) => voi
   if (started) {
     return (
       <form className="stack" onSubmit={finish}>
-        <p className="lede">{t(started.factor === 'email' ? 'accounts.codeEmailed' : 'accounts.codeAuthenticator', { email })}</p>
+        <p className="lede">{started.factor === 'pin' ? t('account.pinAsk') : t(started.factor === 'email' ? 'accounts.codeEmailed' : 'accounts.codeAuthenticator', { email })}</p>
         <label className="y-label" htmlFor="code">{t('accounts.code')}</label>
-        <input id="code" className="field field--code" inputMode="numeric" autoComplete="one-time-code" maxLength={8} autoFocus
-               value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} />
+        <input id="code" className="field field--code" inputMode="numeric" autoComplete="one-time-code" maxLength={12} autoFocus
+               value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 12))} />
         {error && <p className="note note--warn" role="alert">{error}</p>}
         <button className="btn btn--primary" disabled={busy || code.length < 6}>{busy ? t('accounts.working') : t('accounts.confirm')}</button>
         <button type="button" className="btn btn--quiet" onClick={() => { setStarted(null); setCode(''); setError(''); }}>{t('accounts.back')}</button>
@@ -166,7 +167,8 @@ export function App() {
   } else {
     body = (<>
       <p className="lede">{t('accounts.signedInHere', { email: account.email })}</p>
-      <button type="button" className="btn" onClick={forget}>{t('accounts.forgetHere')}</button>
+      <TwoStep email={account.email} services={SERVICES} lang={lang()} />
+      <button type="button" className="btn btn--quiet" onClick={forget}>{t('accounts.forgetHere')}</button>
     </>);
   }
 

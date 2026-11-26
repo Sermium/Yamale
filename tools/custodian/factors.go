@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/argon2"
 )
 
 // The second factor, demanded when a RECOVERY is asked for.
@@ -37,10 +39,17 @@ import (
 // Nothing here is wired into the signing path and nothing should be. See
 // docs/scope/decisions-2026-09-18.md.
 //
-// # A ladder, not a setting
+// # A choice, guarded like a ladder (since 2026-11-26)
 //
-// An account uses the STRONGEST factor it has enrolled, and the service decides
-// which that is rather than the caller:
+// The account holder chooses the factor: the emailed code, an authenticator
+// app, or a PIN they set (a fixed code, which the owner asked for knowing it is
+// a second password rather than a second possession). The choice is
+// Enrolled.Preferred, and changing it, or setting a PIN, needs the CURRENT
+// factor answered first (handleFactorChoose): a thief holding the password
+// alone can no more switch an account to a weaker factor than before.
+//
+// An account that never chose is held to the strongest factor it has enrolled,
+// as before, and the service decides which that is rather than the caller:
 //
 //	passkey  >  TOTP  >  emailed code
 //
@@ -69,6 +78,8 @@ const (
 	FactorEmail   FactorKind = "email"
 	FactorTOTP    FactorKind = "totp"
 	FactorPasskey FactorKind = "passkey"
+	// FactorPIN is a fixed code the holder chose, checked like the password.
+	FactorPIN FactorKind = "pin"
 )
 
 // strength orders the ladder. Higher wins.
@@ -103,6 +114,15 @@ type Enrolled struct {
 
 	// Passkey is reserved and deliberately inert. See Required.
 	PasskeyCredentialID []byte `json:"passkey_credential_id,omitempty"`
+
+	// PINHash and PINSalt are the Argon2id verifier of the holder's PIN, with
+	// the password's parameters. Empty means no PIN.
+	PINHash []byte `json:"pin_hash,omitempty"`
+	PINSalt []byte `json:"pin_salt,omitempty"`
+
+	// Preferred is the factor the holder chose. Empty means never chosen: the
+	// account is held to the strongest it has enrolled.
+	Preferred FactorKind `json:"preferred,omitempty"`
 
 	// LastUsedCounter is the TOTP time step most recently accepted, which is
 	// what stops a code being replayed inside its own validity window. A code
@@ -140,13 +160,71 @@ var (
 		"passkey verification is not implemented; this account cannot sign until it is")
 )
 
-// Required says which factor an account must answer with.
+// HasTOTP is a confirmed authenticator.
+func (e Enrolled) HasTOTP() bool { return e.TOTPConfirmed && len(e.TOTPSecret) > 0 }
+
+// HasPIN is a PIN set.
+func (e Enrolled) HasPIN() bool { return len(e.PINHash) > 0 && len(e.PINSalt) > 0 }
+
+// Required says which factor an account must answer with: the one its holder
+// chose, when that one is enrolled, and otherwise the strongest it has.
 //
 // A recovery always needs one — there is no threshold and no exemption, because
 // a recovery is by definition somebody asking for an account they cannot
 // currently reach, which is the same sentence an attacker says.
 func Required(e Enrolled) FactorKind {
+	switch e.Preferred {
+	case FactorEmail:
+		return FactorEmail
+	case FactorTOTP:
+		if e.HasTOTP() {
+			return FactorTOTP
+		}
+	case FactorPIN:
+		if e.HasPIN() {
+			return FactorPIN
+		}
+	}
 	return e.Strongest()
+}
+
+// pinPattern: six to twelve digits. Shorter is guessed online between two
+// rate-limit windows; longer stops being a PIN anybody remembers.
+func validPIN(pin string) bool {
+	if len(pin) < 6 || len(pin) > 12 {
+		return false
+	}
+	for _, r := range pin {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// ErrPINShape is a PIN that is not six to twelve digits.
+var ErrPINShape = errors.New("a PIN is six to twelve digits")
+
+// SetPIN stores the verifier of a new PIN.
+func (e Enrolled) SetPIN(pin string) (Enrolled, error) {
+	if !validPIN(pin) {
+		return e, ErrPINShape
+	}
+	salt := make([]byte, 16)
+	if _, err := rand.Read(salt); err != nil {
+		return e, err
+	}
+	e.PINSalt = salt
+	e.PINHash = argon2.IDKey([]byte(pin), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	return e, nil
+}
+
+func (e Enrolled) pinMatches(pin string) bool {
+	if !e.HasPIN() || !validPIN(pin) {
+		return false
+	}
+	got := argon2.IDKey([]byte(pin), e.PINSalt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	return subtle.ConstantTimeCompare(got, e.PINHash) == 1
 }
 
 // VerifyFactor checks an offered factor against what the account has enrolled.
@@ -158,14 +236,23 @@ func Required(e Enrolled) FactorKind {
 func VerifyFactor(
 	e Enrolled, offered FactorKind, answer string, now time.Time, pending *EmailCode,
 ) (Enrolled, error) {
-	want := e.Strongest()
-	if offered.strength() < want.strength() {
+	want := Required(e)
+	// The factor answered must be the one required. A stronger one than the
+	// holder chose is refused too: a choice the caller could override is not
+	// the holder's choice.
+	if offered != want && !(e.Preferred == "" && offered.strength() > want.strength()) {
 		return e, ErrFactorDowngrade
 	}
 
 	switch want {
 	case FactorPasskey:
 		return e, ErrPasskeyNotBuilt
+
+	case FactorPIN:
+		if !e.pinMatches(answer) {
+			return e, ErrFactorWrong
+		}
+		return e, nil
 
 	case FactorTOTP:
 		step, ok := VerifyTOTP(e.TOTPSecret, answer, now)

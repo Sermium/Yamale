@@ -143,7 +143,7 @@ func (s *server) handleRecoveryClaim(w http.ResponseWriter, r *http.Request) {
 	updated, err := VerifyFactor(
 		enrolled, FactorKind(req.Factor), req.Answer, s.clock(), s.pendingCode(rec.ID))
 	if err != nil {
-		refuse(w, factorStatus(err), factorReason(err, enrolled.Strongest()))
+		refuse(w, factorStatus(err), factorReason(err, Required(enrolled)))
 		return
 	}
 	// VerifyFactor returns an updated record because a spent TOTP step is
