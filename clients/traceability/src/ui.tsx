@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Icon } from './icons.tsx';
 import { formatDate, t } from '@yamale/chain';
 
 export type Failure = { ok: false; reason: 'unreachable'; detail: string };
@@ -57,14 +58,27 @@ function applyTheme(theme: Theme) {
   } catch { /* private mode: the choice lasts this page only */ }
 }
 
+/** The theme on screen now: the saved choice, or else what the device asks for. */
+function shownTheme(): 'light' | 'dark' {
+  const saved = savedTheme();
+  if (saved !== 'system') return saved;
+  try { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch { return 'light'; }
+}
+
+/**
+ * Two states, light and dark, from whatever is on screen. Until it is pressed
+ * the app follows the device; pressing it fixes the other one. A third
+ * "follow the device" step looked identical to one of the other two and read
+ * as a broken switch.
+ */
 export function ThemeButton() {
-  const [theme, setTheme] = useState<Theme>(savedTheme);
-  const next: Theme = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark';
-  const label = theme === 'dark' ? t('traceability.themeDark') : theme === 'light' ? t('traceability.themeLight') : t('traceability.themeSystem');
+  const [theme, setTheme] = useState<'light' | 'dark'>(shownTheme);
+  const next = theme === 'dark' ? 'light' : 'dark';
   return (
-    <button type="button" className="appbar__btn" aria-label={`${t('traceability.theme')}: ${label}`}
+    <button type="button" className="appbar__btn"
+            aria-label={t(next === 'light' ? 'traceability.themeToLight' : 'traceability.themeToDark')}
             onClick={() => { setTheme(next); applyTheme(next); }}>
-      <span aria-hidden="true">{theme === 'dark' ? '◐' : theme === 'light' ? '○' : '◑'}</span>
+      <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
     </button>
   );
 }
