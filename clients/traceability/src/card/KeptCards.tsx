@@ -6,7 +6,7 @@
  * a piece's own page in the Atelier.
  */
 
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { cardLink, chainHead, t } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
@@ -19,6 +19,8 @@ import { stockPieces } from '../atelier/Atelier.tsx';
 import { useRole } from '../atelier/shared/role.ts';
 import { forgetKeptCard, keptCard, type Selection } from './cards.ts';
 import { CardSheet, OwnershipCard, PrintCards } from './PrintCards.tsx';
+import { CardImageButtons } from './CardImageButtons.tsx';
+import { readProfile } from '../api.ts';
 
 interface Shop { name: string; jewelerId: string; business: string }
 interface Piece { jewelId: string; title: string | null; inscription: string }
@@ -26,15 +28,27 @@ interface Piece { jewelId: string; title: string | null; inscription: string }
 /** One card: what the customer receives, and the ways to send it. */
 export function KeptCard({ shop, piece, privateKey }: { shop: Shop; piece: Piece; privateKey: Uint8Array }) {
   const [printing, setPrinting] = useState(false);
+  const [profile] = useLoad(() => readProfile(shop.jewelerId), [shop.jewelerId], () => ({ state: 'none' as const }));
+  const look = profile && profile.state === 'loaded' ? profile.profile : null;
   const link = cardLink(PUBLIC_ORIGIN, piece.jewelId, privateKey);
   const title = piece.title ?? t('traceability.jewelN', { id: piece.jewelId });
+  const brand = { ...(look?.colour ? { '--jeweler-colour': look.colour } : {}), ...(look?.accent ? { '--jeweler-accent': look.accent } : {}) } as CSSProperties;
   return (
     <div className="stack keptcard">
-      <div className="ocard-preview"><OwnershipCard shop={shop} card={{ ...piece, privateKey }} look={null} /></div>
-      <ShareButtons link={link} title={t('traceability.cardShareTitle', { title })}
-                    text={t('traceability.cardShareText', { shop: shop.name, title })} />
-      <input className="bigfield cardlink" readOnly value={link} aria-label={t('traceability.copyLink')}
-             onFocus={(e) => e.currentTarget.select()} />
+      <div className="ocard-preview" style={brand}><OwnershipCard shop={shop} card={{ ...piece, privateKey }} look={look} /></div>
+      <CardImageButtons face={{
+        shop: shop.name, title, inscription: piece.inscription, link, scanLine: t('traceability.cardScanLine'),
+        colour: look?.colour, accent: look?.accent,
+      }} />
+      <details className="keptcard__link">
+        <summary>{t('traceability.cardLinkOnly')}</summary>
+        <div className="stack">
+          <ShareButtons link={link} title={t('traceability.cardShareTitle', { title })}
+                        text={t('traceability.cardShareText', { shop: shop.name, title })} />
+          <input className="bigfield cardlink" readOnly value={link} aria-label={t('traceability.copyLink')}
+                 onFocus={(e) => e.currentTarget.select()} />
+        </div>
+      </details>
       <button type="button" className="btn" onClick={() => { setPrinting(true); setTimeout(() => { window.print(); setPrinting(false); }, 300); }}>
         {t('traceability.cardsPrint')}
       </button>

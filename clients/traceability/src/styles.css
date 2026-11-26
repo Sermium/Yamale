@@ -358,3 +358,7 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .panel--row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); }
 .panel--row .note { flex-basis: 100%; }
 .panel__text { margin: 0; flex: 1 1 12rem; }
+
+/* The bare link, folded under the card image it usually replaces. */
+.keptcard__link > summary { cursor: pointer; color: var(--text-muted); font-size: var(--step--1); padding-block: var(--sp-1); }
+.keptcard__link[open] > summary { margin-block-end: var(--sp-2); }
