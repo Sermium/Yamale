@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
 
-import { signIn, signUp, signOut, lastEmail, revealPhrase, eraseEverything, type Signer } from './account.ts';
+import {
+  checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, signIn, signOut, signUp,
+  type Previous, type Signer, type SignInStep,
+} from './account.ts';
 import { CURRENCIES, currencyOf, display, parseAmount, toBaseUnits, rawAmount, groupDigits, defaultDenom, setDefaultDenom } from './money.ts';
 import { topUpEmpty, needsTopUp as topUpEmpty_needed, balances } from './topup.ts';
 import { encodeSigned, shortCodeSigned, readSigned, describe,
@@ -38,6 +41,7 @@ import * as ledger from './ledger.ts';
  */
 export function App() {
   const [signer, setSigner] = useState<Signer | null>(null);
+  const [previous, setPrevious] = useState<Previous | null>(null);
   const [topUpDone, setTopUpDone] = useState(0);
   const [topping, setTopping] = useState(false);
   // Subscribing here re-renders every screen below when the language
@@ -88,6 +92,7 @@ export function App() {
           <>
             <Header profile={signer.profile} onSignOut={() => { signOut(); setSigner(null); }} />
             <main className="screen">
+              {previous && <MovePrevious previous={previous} signer={signer} onDone={() => setPrevious(null)} />}
               {screen === 'home' && <Home signer={signer} refresh={topUpDone} topping={topping} />}
               {screen === 'pay' && <Transfer signer={signer} />}
               {screen === 'change' && <Exchange signer={signer} />}
@@ -97,7 +102,7 @@ export function App() {
             <TabBar current={screen} onChange={setScreen} />
           </>
         ) : (
-          <Welcome onSignedIn={setSigner} />
+          <Welcome onSignedIn={(s, p) => { setSigner(s); setPrevious(p ?? null); }} />
         )}
       </div>
     </div>
@@ -146,7 +151,57 @@ function Header({ profile, onSignOut }: { profile: { name: string; userId?: stri
  * and the user is never told — which is the difference between a product and a
  * cryptography exercise.
  */
-function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
+function signInFailure(reason: Extract<SignInStep, { kind: 'failed' }>['reason']): string {
+  switch (reason) {
+    case 'wrong': return t('app.wrongPassword');
+    case 'no-account': return t('app.noAccount');
+    case 'wait': return t('app.tooManyTries');
+    case 'unavailable': return t('app.servicesDown');
+    case 'expired': return t('app.codeExpired');
+    case 'device-taken': return t('app.deviceTaken');
+    case 'email-in-use': return t('app.emailInUse');
+    default: return t('app.signInRefused');
+  }
+}
+
+/**
+ * An account this app made on its own before accounts were shared, whose
+ * email now opens the shared account: its money is offered to move across, in
+ * one go, and the old account is forgotten once it is empty.
+ */
+function MovePrevious({ previous, signer, onDone }: { previous: Previous; signer: Signer; onDone: () => void }) {
+  const [state, setState] = useState<'checking' | 'offer' | 'busy' | 'failed'>('checking');
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      const from = await previous.signer.internalAddress();
+      const res = await fetch(`/api/rest/cosmos/bank/v1beta1/balances/${from}`).catch(() => null);
+      const balances: { amount: string }[] = res?.ok ? ((await res.json()).balances ?? []) : [];
+      if (!live) return;
+      if (balances.some((b) => BigInt(b.amount) > 0n)) setState('offer');
+      else { previous.forget(); onDone(); }
+    })();
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previous]);
+  if (state === 'checking') return null;
+  return (
+    <div className="card">
+      <strong>{t('app.previousTitle')}</strong>
+      <p className="muted">{t('app.previousExplain')}</p>
+      {state === 'failed' && <p className="notice notice--bad">{t('app.previousFailed')}</p>}
+      <button type="button" className="primary" disabled={state === 'busy'} onClick={async () => {
+        setState('busy');
+        const result = await chain.sweepTo(previous.signer, await signer.internalAddress());
+        if (!result.ok) { setState('failed'); return; }
+        previous.forget();
+        onDone();
+      }}>{state === 'busy' ? t('app.working') : t('app.previousMove')}</button>
+    </div>
+  );
+}
+
+function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) => void }) {
   const [mode, setMode] = useState<'in' | 'up'>(lastEmail() ? 'in' : 'up');
   const [name, setName] = useState('');
   const [email, setEmail] = useState(lastEmail() ?? '');
@@ -165,10 +220,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
     if (!creds) { setError(t('app.biometricFailed')); return; }
     setBusy(true);
     try {
-      const s = await signIn(creds.email, creds.password);
-      const enrolment = twofa.enrolment();
-      if (enrolment?.method === 'totp' && enrolment.secret) { setPending(s); return; }
-      onSignedIn(s);
+      handle(await signIn(creds.email, creds.password));
     } catch {
       setError(t('app.wrongPassword'));
     } finally {
@@ -179,6 +231,42 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
   const [error, setError] = useState('');
 
   const [pending, setPending] = useState<Signer | null>(null);
+  const [pendingPrevious, setPendingPrevious] = useState<Previous | undefined>(undefined);
+  // A new device: the account services ask for a code before releasing the key.
+  const [codeStep, setCodeStep] = useState<Extract<SignInStep, { kind: 'code' }> | null>(null);
+  const [code, setCode] = useState('');
+
+  /** The password opened the account; this device's own second step, if set, still decides. */
+  function afterPassword(s: Signer, prev?: Previous) {
+    const enrolled = twofa.enrolment();
+    if (enrolled?.method === 'totp' && enrolled.secret) { setPending(s); setPendingPrevious(prev); return; }
+    onSignedIn(s, prev);
+  }
+
+  function handle(step: SignInStep) {
+    if (step.kind === 'code') { setCodeStep(step); setCode(''); return; }
+    if (step.kind === 'failed') {
+      setError(signInFailure(step.reason));
+      if (step.reason === 'expired') setCodeStep(null);
+      return;
+    }
+    setCodeStep(null);
+    afterPassword(step.signer, step.previous);
+  }
+
+  async function submitCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!codeStep || code.trim().length < 6) return;
+    setBusy(true);
+    setError('');
+    try {
+      handle(await finishSignIn(codeStep, code));
+    } catch {
+      setError(t('app.signInRefused'));
+    } finally {
+      setBusy(false);
+    }
+  }
   const [otp, setOtp] = useState('');
   const [checking, setChecking] = useState(false);
 
@@ -187,18 +275,17 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
     setBusy(true);
     setError('');
     try {
-      const s = mode === 'up'
-        ? await signUp({ name, email }, password)
-        : await signIn(email, password);
-
       // The password unlocked the account; the second factor decides whether
       // this session gets it. Holding the signer here rather than passing it up
       // means a half-finished sign-in cannot spend anything.
-      const enrolled = twofa.enrolment();
-      if (enrolled?.method === 'totp' && enrolled.secret) { setPending(s); return; }
-      onSignedIn(s);
+      if (mode === 'up') afterPassword(await signUp({ name, email }, password));
+      else handle(await signIn(email, password));
     } catch (err) {
-      setError(String(err).includes('no-account') ? t('app.noAccount') : t('app.wrongPassword'));
+      const m = String(err);
+      setError(m.includes('email-in-use') ? t('app.emailInUse')
+        : m.includes('device-taken') ? t('app.deviceTaken')
+        : m.includes('at least') ? t('app.passwordTooShort')
+        : t('app.signInRefused'));
     } finally {
       setBusy(false);
     }
@@ -223,7 +310,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
     setChecking(true);
     setError('');
     if (await twofa.verify(enrolled.secret, code)) {
-      onSignedIn(pending);
+      onSignedIn(pending, pendingPrevious);
     } else {
       setError(t('app.badCode'));
       setOtp('');
@@ -262,11 +349,34 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
     );
   }
 
+  if (codeStep) {
+    return (
+      <div className="welcome">
+        <img className="welcome__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={56} height={56} />
+        <h1>{t('app.secondStep')}</h1>
+        <p className="muted">{t(codeStep.factor === 'email' ? 'app.codeEmailed' : 'app.codeAuthenticator', { email: codeStep.email })}</p>
+        <form onSubmit={submitCode} className="form">
+          <label>
+            <span>{t('app.sixDigits')}</span>
+            <input inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={code} autoFocus
+                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} />
+          </label>
+          {error && <p className="notice notice--bad">{error}</p>}
+          <button className="primary" disabled={busy || code.length < 6}>{busy ? t('app.checking') : t('app.confirm')}</button>
+          <button type="button" className="linkish" onClick={() => { setCodeStep(null); setCode(''); setError(''); }}>
+            {t('app.cancel')}
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="welcome">
       <img className="welcome__mark" src={`${import.meta.env.BASE_URL}mark.png`} alt="" width={56} height={56} />
       <h1>{t('app.title')}</h1>
       <p className="muted">{t('app.tagline')}</p>
+      <p className="muted">{t('app.sharedAccountNote')}</p>
 
       <form onSubmit={submit} className="form">
         {mode === 'up' && (
@@ -283,7 +393,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer) => void }) {
           <span>{t('app.password')}</span>
           <input
             type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            required minLength={8}
+            required minLength={mode === 'up' ? 10 : 1}
             autoComplete={mode === 'up' ? 'new-password' : 'current-password'}
           />
         </label>
@@ -1066,6 +1176,12 @@ function Settings({ signer, onClosed }: { signer: Signer; onClosed: () => void }
             <p className="code">{address}</p>
           </div>
 
+          {!signer.hasPhrase ? (
+            <div className="card">
+              <strong>{t('app.revealPhrase')}</strong>
+              <p className="muted">{t('app.noPhrase')}</p>
+            </div>
+          ) : (
           <div className="card">
             <strong>{t('app.revealPhrase')}</strong>
             {!phrase && (
@@ -1091,6 +1207,7 @@ function Settings({ signer, onClosed }: { signer: Signer; onClosed: () => void }
               </>
             )}
           </div>
+          )}
         </>
       )}
         <CloseAccount signer={signer} onClosed={onClosed} />
@@ -2134,9 +2251,7 @@ function BiometricSetting({ email }: { email: string }) {
     setNote('');
     // Verify the password really is this account's before sealing it, so a
     // typo cannot enrol a credential that unlocks nothing.
-    try {
-      await signIn(email, pw);
-    } catch {
+    if (!(await checkPassword(email, pw))) {
       setNote(t('app.wrongPassword'));
       return;
     }

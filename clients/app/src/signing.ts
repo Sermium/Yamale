@@ -46,6 +46,22 @@ export interface Signed {
  * this module and is never rendered. Deriving on each call rather than caching
  * the private key keeps the window in which it exists as short as the call.
  */
+/**
+ * The same signature, from the account's key itself. Accounts shared with the
+ * other Yamale apps have no recovery phrase: their key is held by the account
+ * services, sealed and split, and opened here with the password.
+ */
+export async function signRequestWithKey(privkey: Uint8Array, payload: string): Promise<Signed> {
+  const digest = sha256(new TextEncoder().encode(payload));
+  const signature = await Secp256k1.createSignature(digest, privkey);
+  const { pubkey } = await Secp256k1.makeKeypair(privkey);
+  return {
+    payload,
+    signature: toBase64(signature.toFixedLength()),
+    pubkey: toBase64(Secp256k1.compressPubkey(pubkey)),
+  };
+}
+
 export async function signRequest(mnemonic: string, payload: string): Promise<Signed> {
   const { privkey } = await deriveKey(mnemonic);
   const digest = sha256(new TextEncoder().encode(payload));
