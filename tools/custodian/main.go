@@ -101,6 +101,9 @@ type server struct {
 	// (enrol_verify.go). Always on in a deployment; false only in tests that
 	// enrol directly.
 	enrolNeedsEmailCode bool
+	// lookupToken lets the accounts API ask which account an email opens
+	// (lookup.go). Empty: the endpoint answers nothing.
+	lookupToken string
 }
 
 // clock is the server's time, defaulting to the wall clock.
@@ -114,6 +117,7 @@ func (s *server) clock() time.Time {
 func main() {
 	dir := flag.String("dir", "", "directory holding the sealed account files")
 	keyFile := flag.String("sealing-key-file", "", "file holding the 32-byte sealing key")
+	lookupTokenFile := flag.String("lookup-token-file", "", "file holding the token the accounts API presents to look up an email's account; empty turns the lookup off")
 	pepperFile := flag.String("pepper-file", "", "file holding the blind-index pepper")
 	listen := flag.String("listen", "127.0.0.1:8099", "address to serve on")
 	role := flag.String("role", recovery.RoleCustodian, "which holding this deployment keeps: custodian or recovery")
@@ -214,6 +218,19 @@ func main() {
 		}
 		s.codes = newSigninCodes(k)
 	}
+	if *lookupTokenFile != "" {
+		info, err := os.Stat(*lookupTokenFile)
+		if err != nil || info.Mode().Perm()&0o077 != 0 {
+			fmt.Fprintln(os.Stderr, "custodian: the lookup token file must exist and be chmod 600")
+			os.Exit(2)
+		}
+		raw, err := os.ReadFile(*lookupTokenFile)
+		if err != nil || len(strings.TrimSpace(string(raw))) < 32 {
+			fmt.Fprintln(os.Stderr, "custodian: the lookup token must be at least 32 characters")
+			os.Exit(2)
+		}
+		s.lookupToken = strings.TrimSpace(string(raw))
+	}
 	if *smtpConfig != "" {
 		if *role != recovery.RoleCustodian {
 			fmt.Fprintln(os.Stderr, "custodian: --smtp-config belongs on the custodian; the recovery service sends nothing")
@@ -298,6 +315,8 @@ func main() {
 	guarded.HandleFunc("POST /v1/enrol", s.handleEnrol)
 	// The code that proves the email of a registration. Custodian only.
 	guarded.Handle("POST /v1/enrol/code", fast(s.handleEnrolCode))
+	// Which account an email opens: the accounts API only, by token (lookup.go).
+	guarded.Handle("POST /v1/internal/address", fast(s.handleLookup))
 	guarded.Handle("POST /v1/enrol/start", fast(handleEnrolGone))
 	guarded.Handle("POST /v1/enrol/message", fast(handleEnrolGone))
 	guarded.Handle("POST /v1/enrol/finish", fast(handleEnrolGone))

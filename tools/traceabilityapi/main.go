@@ -56,6 +56,9 @@ type server struct {
 	sender        Sender  // pays the welcome
 	onboarder     Onboarder // devnet only: registers accounts and records their country; nil is off
 	mailer        Mailer    // sends the email that money was sent to an address; nil is off
+	emails        EmailLookup // which account an email opens (the custodian); nil: requests by identifier only
+	aliases       AliasReader
+	txs           TxChecker
 	sponsorDaily  int
 	operatorToken string // empty: the application list is off
 	mu            sync.Mutex
@@ -89,6 +92,8 @@ func main() {
 	lifetime := flag.Duration("sponsor-for", 365*24*time.Hour, "how long an allowance lasts")
 	fees := flag.String("fees", "0uyml", "fee the sponsor pays per grant")
 	daily := flag.Int("sponsor-daily", 200, "most accounts sponsored in any 24 hours")
+	lookupURL := flag.String("custodian-lookup", "", "the custodian's base URL, to ask which account an email opens (requests by email); empty turns it off")
+	lookupTokenFile := flag.String("lookup-token-file", "", "file holding the token the custodian expects for that lookup")
 	smtpFile := flag.String("smtp-file", "", "file holding the SMTP login (tools/custodian's format) for transfer notices; empty sends none")
 	onboard := flag.Bool("onboard", false, "devnet only: the sponsor is an approved participant and records the country each account chose")
 	welcome := flag.String("welcome", "", "devnet only: coins sent to each newly sponsored account, e.g. 10000000000uusdc; empty sends none")
@@ -123,6 +128,8 @@ func main() {
 		chain:        chain,
 		balances:     chain,
 		keys:         chain,
+		aliases:      chain,
+		txs:          chain,
 		sponsorFloor: floorAmount,
 		sponsorDenom: floorDenom,
 		now:          time.Now,
@@ -152,6 +159,13 @@ func main() {
 			s.onboarder = g
 			log.Printf("onboarding accounts as participant %s", g.Address())
 		}
+	}
+	if *lookupURL != "" {
+		raw, err := os.ReadFile(*lookupTokenFile)
+		if err != nil || len(strings.TrimSpace(string(raw))) < 32 {
+			log.Fatalf("lookup token file %s must hold at least 32 characters", *lookupTokenFile)
+		}
+		s.emails = custodianLookup{url: strings.TrimRight(*lookupURL, "/"), token: strings.TrimSpace(string(raw)), client: &http.Client{Timeout: 10 * time.Second}}
 	}
 	if *smtpFile != "" {
 		m, err := loadSMTPConfig(*smtpFile)
@@ -202,6 +216,9 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /v1/sponsor", s.handleSponsor)
 	mux.HandleFunc("POST /v1/onboard", s.handleOnboard)
 	mux.HandleFunc("POST /v1/transfers/notify", s.handleTransferNotify)
+	mux.HandleFunc("POST /v1/requests", s.handleRequestCreate)
+	mux.HandleFunc("GET /v1/requests", s.handleRequestsMine)
+	mux.HandleFunc("POST /v1/requests/{id}/{action}", s.handleRequestUpdate)
 	mux.HandleFunc("PUT /v1/people/me", s.handlePersonPut)
 	mux.HandleFunc("GET /v1/people/me", s.handlePersonMine)
 	mux.HandleFunc("GET /v1/people/{address}", s.handlePersonLookup)

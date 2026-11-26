@@ -139,6 +139,18 @@ if [ "$API" = 1 ]; then
     sudo install -o yamale-traceability -g yamale-traceability -m 600 /etc/yamale/custodian-smtp.conf /etc/yamale/traceability-smtp.conf
     echo "transfer notices: mail login copied from the custodian"
   fi
+  # Money requests by email ask the custodian which account an email opens,
+  # with a token both services hold. Created once, never printed.
+  if ! sudo test -f /etc/yamale/custodian-lookup-token; then
+    T=$(head -c 64 /dev/urandom | base64 | tr -dc A-Za-z0-9 | head -c 48)
+    printf "%s" "$T" | sudo install -o yamale-custodian -g yamale-custodian -m 600 /dev/stdin /etc/yamale/custodian-lookup-token
+    unset T
+    echo "lookup token created"
+  fi
+  if ! sudo test -f /etc/yamale/traceability-lookup-token; then
+    sudo install -o yamale-traceability -g yamale-traceability -m 600 /etc/yamale/custodian-lookup-token /etc/yamale/traceability-lookup-token
+  fi
+  LOOKUP_FLAG=" --custodian-lookup http://127.0.0.1:8099 --lookup-token-file /etc/yamale/traceability-lookup-token"
   SMTP_FLAG=""
   sudo test -f /etc/yamale/traceability-smtp.conf && SMTP_FLAG=" --smtp-file /etc/yamale/traceability-smtp.conf"
 
@@ -159,7 +171,7 @@ Wants=network-online.target
 [Service]
 User=yamale-traceability
 Group=yamale-traceability
-ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --welcome 10000000000uusdc --onboard${SMTP_FLAG} --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
+ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --welcome 10000000000uusdc --onboard${SMTP_FLAG}${LOOKUP_FLAG} --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
 Restart=always
 RestartSec=5
 MemoryMax=256M

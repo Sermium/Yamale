@@ -32,6 +32,7 @@ import * as ramp from './ramp.ts';
 import * as ledger from './ledger.ts';
 import { PasswordField } from '../../shared/account/PasswordField.tsx';
 import { EmailSend, ReceivePanel } from './EmailTransfer.tsx';
+import { AskUser, IncomingRequests } from './Requests.tsx';
 import { pendingReceive } from './emailTransfer.ts';
 
 /**
@@ -653,6 +654,7 @@ function Home({ signer, refresh, topping }: { signer: Signer; refresh: number; t
 
   return (
     <>
+      <IncomingRequests signer={signer} />
       {topping && (
         <div className="topping">
           <span className="topping__dots"><i /><i /><i /></span>
@@ -2180,7 +2182,7 @@ function Transfer({ signer }: { signer: Signer }) {
       {folder === 'pay' && <Pay signer={signer} />}
       {folder === 'email' && <EmailSend signer={signer} />}
       {folder === 'secured' && <Secured signer={signer} />}
-      {folder === 'request' && <Request signer={signer} />}
+      {folder === 'request' && <><AskUser signer={signer} /><Request signer={signer} /></>}
     </>
   );
 }
