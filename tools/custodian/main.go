@@ -97,6 +97,10 @@ type server struct {
 	codes *signinCodes
 	// mailer sends those codes and the new-sign-in notices. Custodian only.
 	mailer Mailer
+	// enrolNeedsEmailCode makes every enrolment prove its email with a code
+	// (enrol_verify.go). Always on in a deployment; false only in tests that
+	// enrol directly.
+	enrolNeedsEmailCode bool
 }
 
 // clock is the server's time, defaulting to the wall clock.
@@ -196,6 +200,7 @@ func main() {
 		store: store, index: index, role: *role,
 		recoveries: recoveries, notifier: notifier,
 		started: time.Now(),
+		enrolNeedsEmailCode: true,
 	}
 	if *signinKeyFile != "" {
 		if err := outsideStore(*dir, *signinKeyFile, "the sign-in code key"); err != nil {
@@ -291,6 +296,8 @@ func main() {
 	// pays for an Argon2id derivation at 64 MiB for the password verifier,
 	// which is slow on purpose.
 	guarded.HandleFunc("POST /v1/enrol", s.handleEnrol)
+	// The code that proves the email of a registration. Custodian only.
+	guarded.Handle("POST /v1/enrol/code", fast(s.handleEnrolCode))
 	guarded.Handle("POST /v1/enrol/start", fast(handleEnrolGone))
 	guarded.Handle("POST /v1/enrol/message", fast(handleEnrolGone))
 	guarded.Handle("POST /v1/enrol/finish", fast(handleEnrolGone))

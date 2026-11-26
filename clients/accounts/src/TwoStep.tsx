@@ -38,6 +38,8 @@ export function TwoStep({ email, services, lang }: { email: string; services: Se
   const [pinAgain, setPinAgain] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // The methods as last read, so Back from any step returns to their list.
+  const [known, setKnown] = useState<FactorState | null>(null);
 
   const failed = (reason: string) => { setBusy(false); setError(t(`accounts.fail.${reason}`)); };
 
@@ -47,6 +49,7 @@ export function TwoStep({ email, services, lang }: { email: string; services: Se
     const r = await readFactors(services, email, password);
     if (!r.ok) { failed(r.reason); return; }
     setBusy(false);
+    setKnown(r.value);
     setStep({ kind: 'overview', state: r.value });
   }
 
@@ -106,7 +109,10 @@ export function TwoStep({ email, services, lang }: { email: string; services: Se
   }
 
   const errorNote = error && <p className="note note--warn" role="alert">{error}</p>;
-  const cancel = <button type="button" className="btn btn--quiet" onClick={() => { setStep({ kind: 'locked' }); setError(''); }}>{t('accounts.back')}</button>;
+  // Back from a step: to the list of methods, never all the way out.
+  const back = () => { setError(''); setAnswer(''); setStep(known ? { kind: 'overview', state: known } : { kind: 'locked' }); };
+  const cancel = <button type="button" className="btn btn--quiet" onClick={back}>{t('accounts.back')}</button>;
+  const close = () => { setError(''); setPassword(''); setKnown(null); setStep({ kind: 'locked' }); };
 
   let body;
   switch (step.kind) {
@@ -142,6 +148,7 @@ export function TwoStep({ email, services, lang }: { email: string; services: Se
             })}
           </ul>
           {errorNote}
+          <button type="button" className="btn btn--quiet" onClick={close}>{t('account.twoStepClose')}</button>
         </div>
       );
       break;
@@ -199,7 +206,7 @@ export function TwoStep({ email, services, lang }: { email: string; services: Se
       body = (
         <div className="stack">
           <p className="note" role="status">{t('account.methodSaved', { method: t(`account.method.${step.factor}`) })}</p>
-          <button type="button" className="btn" onClick={() => setStep({ kind: 'locked' })}>{t('accounts.back')}</button>
+          <button type="button" className="btn" onClick={close}>{t('account.twoStepClose')}</button>
         </div>
       );
       break;

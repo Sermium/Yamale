@@ -26,7 +26,8 @@ import {
 import { protectionOutcome } from '../../shared/account/protection.ts';
 import { deviceLabel, signIn as servicesSignIn, startSignIn, type SignInFailure } from '../../shared/account/signin.ts';
 import { canonicalEmail } from '../../wallet/src/account/deposit.ts';
-import { enrol, privateKeyFromMnemonic, servicesAvailable, type Services } from '../../wallet/src/account/enrol.ts';
+import { enrol, privateKeyFromMnemonic, servicesAvailable, type EmailCode, type Services } from '../../wallet/src/account/enrol.ts';
+import { isCodeRefusal, requestEnrolCode } from '../../shared/account/signin.ts';
 import { rememberEnrolment } from '../../wallet/src/account/stored.ts';
 import { fullName, readMyPerson, requestOnboarding, savePerson } from '../../shared/account/people.ts';
 import { signRequest, signRequestWithKey, type Signed } from './signing.ts';
@@ -152,14 +153,32 @@ function previousOf(legacy: Legacy): Previous {
  * the chain can issue its identifier. The last two are best effort: an account
  * without them still works, and the profile can be completed later.
  */
-export async function signUp(email: string, details: Details, password: string): Promise<Signer> {
+/**
+ * Email the code that proves the address of a new account: the account is
+ * created only with it (tools/custodian/enrol_verify.go).
+ */
+export async function sendSignUpCode(email: string): Promise<{ nonce: string; issued: number }> {
+  const r = await requestEnrolCode(SERVICES, email, lang());
+  if (!r.ok) throw new Error(r.reason === 'exists' ? 'email-in-use' : 'code-not-sent');
+  return { nonce: r.nonce, issued: r.issued };
+}
+
+export async function signUp(email: string, details: Details, password: string, emailCode: EmailCode): Promise<Signer> {
   if (readAccount()) throw new Error('device-taken');
   const made = await createAccount(email, password);
   const name = `${details.firstName.trim()} ${details.lastName.trim()}`.trim();
   const profile: Profile = { name, email: made.account.email };
   rememberName(made.account.address, name);
   if (await servicesAvailable(SERVICES)) {
-    const done = await enrol(made.privateKey, made.account.email, password, SERVICES);
+    let done;
+    try {
+      done = await enrol(made.privateKey, made.account.email, password, SERVICES, fetch, emailCode);
+    } catch (err) {
+      // Nothing was created at the services: the account on this device goes too,
+      // and the person types the code again.
+      forgetAccount();
+      throw new Error(isCodeRefusal(err) ? 'code-wrong' : 'services-refused');
+    }
     if (protectionOutcome(done) === 'email-in-use') {
       // The email already opens an account made elsewhere: sign in to that one instead.
       forgetAccount();
@@ -201,7 +220,9 @@ export async function signIn(email: string, password: string): Promise<SignInSte
     const mnemonic = (legacy.wallet as unknown as { mnemonic: string }).mnemonic;
     const key = await privateKeyFromMnemonic(mnemonic);
     const reachable = await servicesAvailable(SERVICES);
-    const done = reachable ? await enrol(key, canonical, password, SERVICES) : null;
+    // Enrolling needs the code sent to the email now, which a sign-in does not
+    // carry: the old account is kept on this device, protected later.
+    const done = reachable ? await enrol(key, canonical, password, SERVICES).catch(() => null) : null;
     if (!done || protectionOutcome(done) === 'enrolled') {
       const adopted = await adoptKey(key, canonical, password);
       if (done) {

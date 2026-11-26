@@ -4,7 +4,7 @@ import { countryNames, guessCountry } from '../../shared/account/countries.ts';
 import { ACCOUNTS_ORIGIN, ACCOUNTS_PATH, canSignInWithYamale, handoffOutcome, signInWithYamale, takeHandoffKey } from '../../shared/account/handoff.ts';
 
 import {
-  checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, signerFromHandoff, signIn, signOut, signUp,
+  checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, sendSignUpCode, signerFromHandoff, signIn, signOut, signUp,
   type Previous, type Signer, type SignInStep,
 } from './account.ts';
 import { CURRENCIES, currencyOf, display, parseAmount, toBaseUnits, rawAmount, groupDigits, defaultDenom, setDefaultDenom } from './money.ts';
@@ -219,6 +219,9 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
   const [lastName, setLastName] = useState('');
   const [country, setCountry] = useState(guessCountry);
   const [birthDate, setBirthDate] = useState('');
+  // Sign-up proves the email: a code is sent to it, and the account is created with it.
+  const [signupCode, setSignupCode] = useState<{ nonce: string; issued: number } | null>(null);
+  const [emailCode, setEmailCode] = useState('');
   const [email, setEmail] = useState(lastEmail() ?? '');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -293,11 +296,15 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
       // The password unlocked the account; the second factor decides whether
       // this session gets it. Holding the signer here rather than passing it up
       // means a half-finished sign-in cannot spend anything.
-      if (mode === 'up') afterPassword(await signUp(email, { firstName, lastName, country, birthDate }, password));
+      if (mode === 'up' && !signupCode) { setSignupCode(await sendSignUpCode(email)); setEmailCode(''); return; }
+      if (mode === 'up') afterPassword(await signUp(email, { firstName, lastName, country, birthDate }, password, { ...signupCode!, code: emailCode }));
       else handle(await signIn(email, password));
     } catch (err) {
       const m = String(err);
-      setError(m.includes('email-in-use') ? t('app.emailInUse')
+      if (m.includes('code-wrong')) { setSignupCode(null); setEmailCode(''); }
+      setError(m.includes('code-wrong') ? t('app.signupCodeWrong')
+        : m.includes('code-not-sent') ? t('app.signupCodeNotSent')
+        : m.includes('email-in-use') ? t('app.emailInUse')
         : m.includes('device-taken') ? t('app.deviceTaken')
         : m.includes('at least') ? t('app.passwordTooShort')
         : t('app.signInRefused'));
@@ -451,8 +458,15 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
             {t('app.unlockBiometric')}
           </button>
         )}
-        <button className="primary" disabled={busy}>
-          {busy ? t('app.working') : mode === 'up' ? t('app.createAccount') : t('app.signIn')}
+        {mode === 'up' && signupCode && (
+          <label>
+            <span>{t('app.signupCode', { email })}</span>
+            <input inputMode="numeric" autoComplete="one-time-code" maxLength={8} autoFocus value={emailCode}
+                   onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 8))} />
+          </label>
+        )}
+        <button className="primary" disabled={busy || (mode === 'up' && !!signupCode && emailCode.length < 6)}>
+          {busy ? t('app.working') : mode === 'up' ? (signupCode ? t('app.createAccount') : t('app.signupSendCode')) : t('app.signIn')}
         </button>
       </form>
 

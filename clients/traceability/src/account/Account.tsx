@@ -27,7 +27,7 @@ import { AppBar, Section } from '../ui.tsx';
 import { ACCOUNT_EXISTS, MIN_PASSWORD, WrongPassword } from '../../../shared/account/device.ts';
 import { claimRecovered } from '../../../shared/account/recover.ts';
 import { useSession } from './session.tsx';
-import { beginAuthenticator, confirmAuthenticator, deviceLabel, signIn, startSignIn, type SignInFailure } from '../../../shared/account/signin.ts';
+import { beginAuthenticator, confirmAuthenticator, deviceLabel, requestEnrolCode, signIn, startSignIn, type SignInFailure } from '../../../shared/account/signin.ts';
 import { PasswordField } from '../../../shared/account/PasswordField.tsx';
 
 const lang = () => (typeof document !== 'undefined' ? document.documentElement.lang : '') || 'en';
@@ -45,29 +45,57 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState('');
-  const [step, setStep] = useState<'form' | 'making' | 'sponsoring' | 'identifying' | 'protecting' | 'failed' | 'unprotected' | 'authenticator'>('form');
+  const [step, setStep] = useState<'form' | 'sending' | 'code' | 'making' | 'sponsoring' | 'identifying' | 'protecting' | 'failed' | 'unprotected' | 'authenticator'>('form');
+  // The registration code: an account is created only with the code sent to its email.
+  const [sent, setSent] = useState<{ nonce: string; issued: number } | null>(null);
+  const [code, setCode] = useState('');
+  const [created, setCreated] = useState(false);
   const [error, setError] = useState('');  // a catalogue key, never raw English
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
   const differs = again.length > 0 && again !== password;
 
+  async function sendCode() {
+    setStep('sending');
+    const r = await requestEnrolCode(SERVICES, email, lang());
+    if (!r.ok) {
+      setError(r.reason === 'exists' ? 'traceability.protectEmailInUse' : 'traceability.codeNotSent');
+      setStep(created ? 'unprotected' : 'failed');
+      return;
+    }
+    setSent({ nonce: r.nonce, issued: r.issued });
+    setCode(''); setError('');
+    setStep('code');
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (tooShort || differs || !email.includes('@') || !country || !firstName.trim() || !lastName.trim()) return;
     onBusy?.(true);
-    try {
-      setStep('making');
-      await session.create(email, password);
-    } catch (err) {
+    await sendCode();
+  }
+
+  /** With the email's code in hand: create the account, protect it, then the rest. */
+  async function confirmCode(e: FormEvent) {
+    e.preventDefault();
+    if (!sent) return;
+    if (!created) {
+      try {
+        setStep('making');
+        await session.create(email, password);
+        setCreated(true);
+      } catch (err) {
       const m = err instanceof Error ? err.message : '';
       setError(m === ACCOUNT_EXISTS ? 'traceability.accountExists' : m.includes('at least') ? 'traceability.passwordShort' : 'traceability.createFailed');
       setStep('failed');
       onBusy?.(false);
       return;
+      }
     }
-    // The account now exists on this device. Sponsorship is best effort; the
-    // sealed copies are not, because without them the account cannot be signed
-    // into anywhere else, and signing out would lose it.
+    // The sealed copies first, with the email's code: without them the account
+    // cannot be signed into anywhere else, and signing out would lose it.
+    if (!(await saveCopies())) return;
+    // Sponsorship and the identifier are best effort.
     setStep('sponsoring');
     await session.ensureSponsored().catch(() => undefined);
     // Best effort, like sponsorship: an account without its identifier yet is
@@ -75,19 +103,20 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
     setStep('identifying');
     await session.withKey((k) => savePerson(k, session.address!, { first_name: firstName.trim(), last_name: lastName.trim(), birth_date: birthDate }, CHAIN_ID)).catch(() => undefined);
     await claimIdentifier(session, country).catch(() => undefined);
-    await saveCopies();
+    if (factor === 'totp') { setStep('authenticator'); return; }
+    finish();
   }
 
-  async function saveCopies() {
+  async function saveCopies(): Promise<boolean> {
     setStep('protecting');
-    const out = await session.protect(password).catch(() => 'unavailable' as const);
+    const out = await session.protect(password, sent ? { ...sent, code } : undefined).catch(() => 'unavailable' as const);
+    if (out === 'code') { setError('traceability.codeWrongEnrol'); setStep('code'); return false; }
     if (out !== 'enrolled') {
       setError(out === 'email-in-use' ? 'traceability.protectEmailInUse' : 'traceability.protectRequired');
       setStep('unprotected');
-      return;
+      return false;
     }
-    if (factor === 'totp') { setStep('authenticator'); return; }
-    finish();
+    return true;
   }
 
   function finish() {
@@ -96,11 +125,26 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
     onDone?.();
   }
 
+  if (step === 'code') {
+    return (
+      <form className="stack" onSubmit={confirmCode}>
+        <p className="hint">{t('traceability.codeSentTo', { email })}</p>
+        <label className="y-label" htmlFor={uid + '-code'}>{t('traceability.factorAnswer')}</label>
+        <input id={uid + '-code'} className="bigfield num" inputMode="numeric" autoComplete="one-time-code" maxLength={8} autoFocus
+               value={code} onChange={(e) => setCode(digits(e.target.value))} required />
+        {error && <p className="note note--warn" role="alert">{t(error)}</p>}
+        <div className="actions">
+          <button className="btn btn--primary" disabled={code.length < 6}>{t('traceability.createButton')}</button>
+          <button type="button" className="btn" onClick={() => void sendCode()}>{t('traceability.sendAnotherCode')}</button>
+        </div>
+      </form>
+    );
+  }
   if (step === 'unprotected') {
     return (
       <div className="stack">
         <p className="note note--warn" role="alert">{t(error)}</p>
-        <button type="button" className="btn btn--primary" onClick={saveCopies}>{t('traceability.protectButton')}</button>
+        <button type="button" className="btn btn--primary" onClick={() => void sendCode()}>{t('traceability.protectButton')}</button>
       </div>
     );
   }
@@ -353,16 +397,35 @@ function AccountCode({ address }: { address: string }) {
 function ProtectButton() {
   const session = useSession();
   const [password, setPassword] = useState('');
-  const [state, setState] = useState<'idle' | 'busy' | 'unavailable' | 'inuse' | 'wrong' | 'failed'>('idle');
+  const [state, setState] = useState<'idle' | 'busy' | 'unavailable' | 'inuse' | 'wrong' | 'failed' | 'code'>('idle');
+  // The code sent to the account's email, which protecting it needs.
+  const [sent, setSent] = useState<{ nonce: string; issued: number } | null>(null);
+  const [code, setCode] = useState('');
+  const email = session.account?.email ?? '';
   return (
     <form className="stack" onSubmit={async (e) => {
       e.preventDefault();
       setState('busy');
+      if (!sent) {
+        const r = await requestEnrolCode(SERVICES, email, lang());
+        if (!r.ok) { setState(r.reason === 'exists' ? 'inuse' : 'unavailable'); return; }
+        setSent({ nonce: r.nonce, issued: r.issued });
+        setState('idle');
+        return;
+      }
       try {
-        const out = await session.protect(password);
+        const out = await session.protect(password, { ...sent, code });
+        if (out === 'code') { setSent(null); setCode(''); setState('code'); return; }
         setState(out === 'enrolled' ? 'idle' : out === 'email-in-use' ? 'inuse' : 'unavailable');
       } catch (err) { setState(err instanceof WrongPassword ? 'wrong' : 'failed'); }
     }}>
+      {sent && (<>
+        <p className="hint">{t('traceability.codeSentTo', { email })}</p>
+        <label className="y-label" htmlFor="pp-code">{t('traceability.factorAnswer')}</label>
+        <input id="pp-code" className="bigfield num" inputMode="numeric" autoComplete="one-time-code" maxLength={8}
+               value={code} onChange={(e) => setCode(digits(e.target.value))} required />
+      </>)}
+      {state === 'code' && <p className="note note--warn" role="alert">{t('traceability.codeWrongEnrol')}</p>}
       <label className="y-label" htmlFor="pp">{t('traceability.passwordToProtect')}</label>
       <PasswordField id="pp" className="bigfield" autoComplete="current-password" value={password}
              onChange={(e) => setPassword(e.target.value)} required />

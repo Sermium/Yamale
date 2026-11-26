@@ -20,6 +20,10 @@ import (
 
 type enrolRequest struct {
 	Deposit
+	// The registration code emailed by /v1/enrol/code (enrol_verify.go).
+	Nonce  string `json:"nonce"`
+	Issued int64  `json:"issued"`
+	Code   string `json:"code"`
 }
 
 type enrolResponse struct {
@@ -32,7 +36,13 @@ func (s *server) handleEnrol(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
+	if !s.checkEnrolCode(w, enrolEmail(req.Email), req.Nonce, req.Issued, req.Code) {
+		return
+	}
 	address, err := s.Enrol(req.Deposit)
+	if err == nil && s.enrolNeedsEmailCode && s.codes != nil {
+		s.codes.spend(req.Nonce, s.clock())
+	}
 	if err != nil {
 		code, msg := enrolmentError(err)
 		refuse(w, code, msg)

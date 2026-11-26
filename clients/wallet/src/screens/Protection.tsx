@@ -41,6 +41,7 @@ import {
   servicesAvailable,
 } from '../account/enrol.ts';
 import { enrolmentFor, rememberEnrolment } from '../account/stored.ts';
+import { requestEnrolCode } from '../../../shared/account/signin.ts';
 import { openVault, WrongPassword } from '../vault.ts';
 import { Field, Note } from '../ui.tsx';
 
@@ -63,6 +64,10 @@ export function Protection({ address }: { address: string }) {
   const [password, setPassword] = useState('');
   const [working, setWorking] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // The code sent to the email: an account is protected only with it, so
+  // nobody can file a key under an address they do not own.
+  const [sent, setSent] = useState<{ nonce: string; issued: number } | null>(null);
+  const [code, setCode] = useState('');
   // 'checking' until both services answer. Not defaulted to available: a
   // hopeful default would show the form for a moment and then take it away,
   // which is worse than a short wait.
@@ -97,6 +102,14 @@ export function Protection({ address }: { address: string }) {
     event.preventDefault();
     setWorking(true);
     setProblem(null);
+    if (!sent) {
+      const r = await requestEnrolCode(SERVICES, email);
+      setWorking(false);
+      if (!r.ok) { setProblem(t('wal.protFailed', { reason: r.detail || r.reason })); return; }
+      setSent({ nonce: r.nonce, issued: r.issued });
+      setCode('');
+      return;
+    }
     try {
       // The vault is opened here rather than reusing an unlocked session,
       // because this needs the MNEMONIC and an unlocked wallet is held as a
@@ -114,7 +127,7 @@ export function Protection({ address }: { address: string }) {
         throw new Error('this device derived a different address for its own account');
       }
 
-      const result = await enrol(privateKey, email, password, SERVICES);
+      const result = await enrol(privateKey, email, password, SERVICES, fetch, { ...sent, code });
       const record = {
         address: result.address,
         email,
@@ -136,6 +149,8 @@ export function Protection({ address }: { address: string }) {
               ? e.message
               : String(e);
       setProblem(t('wal.protFailed', { reason }));
+      // A wrong or expired code is asked for again, with a fresh one.
+      if (/email code/i.test(reason)) setSent(null);
     } finally {
       setWorking(false);
     }
@@ -170,7 +185,7 @@ export function Protection({ address }: { address: string }) {
             autoComplete="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); setSent(null); }}
           />
         </label>
         <label>
@@ -187,11 +202,19 @@ export function Protection({ address }: { address: string }) {
 
         <p className="wal-small wal-muted">{t('wal.protSame')}</p>
 
+        {sent ? (
+          <label>
+            <span className="wal-field__label">{t('wal.protCode', { email })}</span>
+            <input className="wal-input" inputMode="numeric" autoComplete="one-time-code" maxLength={8} required autoFocus
+                   value={code} onChange={(e) => setCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 8))} />
+          </label>
+        ) : null}
+
         {/* A submit, not a button with a click handler: that is what makes the
             browser enforce `required` and the email format before anything is
             derived, and what lets somebody press Enter in a field. */}
         <button type="submit" className="wal-btn" disabled={working}>
-          {working ? t('wal.protWorking') : t('wal.protOffer')}
+          {working ? t('wal.protWorking') : sent ? t('wal.protOffer') : t('wal.protSendCode')}
         </button>
       </form>
 

@@ -118,7 +118,14 @@ interface DepositBody {
   pubkey: string;
   holding: unknown;
   signature: string;
+  // The code emailed by /v1/enrol/code, which proves the email (since 2026-11-26).
+  nonce?: string;
+  issued?: number;
+  code?: string;
 }
+
+/** The registration code a person read in their email, with what identifies it. */
+export interface EmailCode { nonce: string; issued: number; code: string }
 
 /**
  * Whether both services are actually there.
@@ -185,6 +192,7 @@ export async function enrol(
   password: string,
   services: Services,
   fetchImpl: typeof fetch = fetch,
+  emailCode?: EmailCode,
 ): Promise<EnrolResult> {
   const holdings = await protect(privateKey, password);
   const byRole = new Map(holdings.map((h) => [h.role, h]));
@@ -214,6 +222,7 @@ export async function enrol(
       pubkey: base64(pubkey),
       holding: encodeHolding(holding),
       signature: base64(signature),
+      ...(emailCode ? { nonce: emailCode.nonce, issued: emailCode.issued, code: emailCode.code.trim() } : {}),
     };
 
     const { address: reported, existed } = await post(fetchImpl, `${url}/v1/enrol`, body, role);

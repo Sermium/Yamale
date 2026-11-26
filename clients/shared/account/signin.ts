@@ -141,6 +141,26 @@ export async function signIn(services: Services, a: SignInAnswer, fetchImpl: typ
   return { ok: true, privateKey, address };
 }
 
+/* ------------------------------------------------------------ registration */
+
+/**
+ * Ask the custodian to email a registration code: an account is created only
+ * with the code sent to its email (tools/custodian/enrol_verify.go), so nobody
+ * registers an address they do not own.
+ */
+export async function requestEnrolCode(services: Services, email: string, lang = '', fetchImpl: typeof fetch = fetch):
+  Promise<{ ok: true; nonce: string; issued: number } | { ok: false; reason: SignInFailure | 'exists'; retryAfter?: number; detail: string }> {
+  const r = await post(fetchImpl, `${services.custodianUrl}/v1/enrol/code`, { email: canonicalEmail(email), lang });
+  if (r.status === 409) return { ok: false, reason: 'exists', detail: String(r.body?.error ?? '') };
+  if (r.status !== 200) return failed(r);
+  if (typeof r.body.nonce !== 'string' || !Number.isInteger(r.body.issued)) return { ok: false, reason: 'refused', detail: 'the custodian sent no code reference' };
+  return { ok: true, nonce: r.body.nonce, issued: r.body.issued };
+}
+
+/** Whether an enrolment failed on the email code, so the screen asks for it again. */
+export const isCodeRefusal = (err: unknown): boolean =>
+  /email code/i.test(err instanceof Error ? err.message : String(err));
+
 /* ------------------------------------------------------------ authenticator */
 
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';

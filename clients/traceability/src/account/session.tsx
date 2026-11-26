@@ -11,7 +11,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { DirectSecp256k1Wallet } from '@cosmjs/proto-signing';
 import { ChainSigner, JEWEL_GAS, type EncodeObject, type SubmitResult } from '@yamale/chain';
 
-import { enrol, servicesAvailable } from '../../../wallet/src/account/enrol.ts';
+import { enrol, servicesAvailable, type EmailCode } from '../../../wallet/src/account/enrol.ts';
 import { forgetEnrolment, rememberEnrolment } from '../../../wallet/src/account/stored.ts';
 import { requestSponsorship, sponsorInfo } from '../api.ts';
 import { CHAIN_ID, GAS_PRICE, RPC_ENDPOINT, SERVICES } from '../config.ts';
@@ -20,6 +20,7 @@ import {
 } from '../../../shared/account/device.ts';
 import { protectionOutcome } from '../../../shared/account/protection.ts';
 import { takeHandoffKey } from '../../../shared/account/handoff.ts';
+import { isCodeRefusal } from '../../../shared/account/signin.ts';
 
 /** The sponsor's current message list version (traceabilityapi ownerList). */
 export const SPONSOR_LIST = 4;
@@ -44,7 +45,8 @@ export interface Session {
   submitAsOwner(messages: EncodeObject[]): Promise<SubmitResult>;
   ensureSponsored(): Promise<'sponsored' | 'unavailable' | 'refused'>;
   /** Throws WrongPassword when the password does not open this account's key. */
-  protect(password: string): Promise<'enrolled' | 'unavailable' | 'email-in-use'>;
+  /** 'code' when the email code is missing, wrong or expired: ask for it again. */
+  protect(password: string, emailCode?: EmailCode): Promise<'enrolled' | 'unavailable' | 'email-in-use' | 'code'>;
   /**
    * The automatic save of an account that exists only on this device, started
    * when it is unlocked: nobody should have to find a button for it.
@@ -118,7 +120,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return out.status === 0 || out.status >= 500 ? 'unavailable' as const : 'refused' as const;
   }, []);
 
-  const protect = useCallback(async (password: string) => {
+  const protect = useCallback(async (password: string, emailCode?: EmailCode) => {
     const current = readAccount();
     if (!current || !key.current) throw new Error('locked');
     // The password sealed into the service copies must be the one that opens
@@ -126,7 +128,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     (await unlockAccount(current, password)).fill(0);
     if (!(await servicesAvailable(SERVICES))) return 'unavailable' as const;
     if (!key.current) throw new Error('locked');
-    const done = await enrol(key.current, current.email, password, SERVICES);
+    let done;
+    try {
+      done = await enrol(key.current, current.email, password, SERVICES, fetch, emailCode);
+    } catch (err) {
+      if (isCodeRefusal(err)) return 'code' as const;
+      throw err;
+    }
     // Only brand-new keys are enrolled here, so a 409 is another key's copies.
     if (protectionOutcome(done) === 'email-in-use') return 'email-in-use' as const;
     rememberEnrolment({ address: done.address, email: current.email, holding: done.deviceHolding,
@@ -171,12 +179,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // An account made before saving was part of creation, or whose save
       // failed, is saved now with the password just proven, in the
       // background: the person carries on, and the banner says how it went.
-      if (account.protection !== 'enrolled') {
-        setSaving('busy');
-        protect(password).then(
-          (out) => setSaving(out === 'enrolled' ? 'idle' : out),
-          () => setSaving('failed'));
-      }
+      // An account only on this device is protected from the Account page, which
+      // asks for the code sent to its email; it cannot be done silently any more.
     },
     lock,
     forget() {
