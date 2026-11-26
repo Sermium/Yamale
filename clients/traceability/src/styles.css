@@ -391,3 +391,7 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .accountname__detail { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1); color: var(--text-muted); letter-spacing: 0.02em; }
 .accountname__you { font-size: var(--step--1); color: var(--text-muted); }
 .accountname__you::before { content: "· "; }
+
+/* The profile: first and last name side by side where they fit, the recorded country as text. */
+.profileform__names { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--sp-3); }
+.profileform__fixed { margin: 0; display: grid; gap: var(--sp-1); font-weight: 600; }

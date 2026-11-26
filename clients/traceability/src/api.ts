@@ -138,6 +138,29 @@ export async function requestOnboarding(key: Uint8Array, address: string, countr
   }
 }
 
+/* ------------------------------------------------------------ people */
+
+export interface Person { first_name: string; last_name: string; birth_date?: string }
+
+/** This account's own record, date of birth included; null when it has none yet. */
+export async function readMyPerson(key: Uint8Array, address: string, chainId: string): Promise<ApiResult<Person | null>> {
+  const r = await apiCall<Person>('/v1/people/me', { headers: signedHeaders(key, 'person-read', chainId, address) }, json);
+  return !r.ok && r.status === 404 ? { ok: true, value: null } : r;
+}
+
+/** Save this account's name and date of birth. Signed over the address and the exact body. */
+export function savePerson(key: Uint8Array, address: string, p: Person, chainId: string) {
+  const bytes = utf8.encode(JSON.stringify(p));
+  return signedSend('PUT', '/v1/people/me', key, 'person-save', `${address}.${sha256Hex(bytes)}`, bytes, chainId);
+}
+
+/** The name behind another account, for a member of the app; null when it has none. */
+export async function lookupPerson(key: Uint8Array, target: string, chainId: string): Promise<{ first_name: string; last_name: string } | null> {
+  const r = await apiCall<{ first_name: string; last_name: string }>(`/v1/people/${target}`,
+    { headers: signedHeaders(key, 'person-lookup', chainId, target) }, json);
+  return r.ok ? r.value : null;
+}
+
 /**
  * Store a file under its fingerprint. The request is signed with the staff
  * member's key at once and the key is kept by nobody. A 503 means the API is

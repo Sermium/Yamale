@@ -4,6 +4,7 @@ import { completeJewelReassignment, LanguagePicker, t, useLocale, type JewelView
 import { AccountScreen, UnlockGate } from './account/Account.tsx';
 import { MoveIn } from './account/MoveIn.tsx';
 import { SessionProvider, useSession } from './account/session.tsx';
+import { NamesBridge } from './account/profile.tsx';
 import { ActionStatus, useAction } from './actions/useAction.tsx';
 import { Apply } from './atelier/apply/Apply.tsx';
 import { Amend } from './atelier/piece/Amend.tsx';
@@ -106,6 +107,7 @@ export function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
+        <NamesBridge />
       <div className="y-stage">
         <a className="skip" href="#main">{t('traceability.skip')}</a>
         <header className="y-stage__bar">

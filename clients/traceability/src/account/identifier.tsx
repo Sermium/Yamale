@@ -10,13 +10,11 @@
  * chain derives the identifier; nobody chooses it.
  */
 
-import { useId, useState } from 'react';
 import { confirmParticipant, registerAlias, t } from '@yamale/chain';
 
 import { requestOnboarding } from '../api.ts';
 import { CHAIN_ID } from '../config.ts';
-import { Icon } from '../icons.tsx';
-import { forgetAlias, useAccountLabel } from './names.tsx';
+import { forgetAlias } from './names.tsx';
 import type { Session } from './session.tsx';
 
 // ISO 3166-1 alpha-2, the codes x/alias accepts (the reserved ones are refused on the chain).
@@ -67,31 +65,4 @@ export async function claimIdentifier(session: Session, country: string): Promis
   const sent = await session.submitAsOwner([confirmParticipant(me, onboarded.participant), registerAlias(me)]);
   forgetAlias(me);
   return sent.succeeded ? 'done' : 'refused';
-}
-
-/** On the Account page, for an account without an identifier yet. */
-export function IdentifierPanel({ session }: { session: Session }) {
-  const uid = useId();
-  const me = session.address ?? '';
-  const label = useAccountLabel(me);
-  const [country, setCountry] = useState(guessCountry);
-  const [state, setState] = useState<'idle' | 'busy' | ClaimOutcome>('idle');
-  // A shop or a team member is already named; the panel is for everyone else,
-  // and disappears once the identifier is read back.
-  const hasIdentifier = /^[A-Z]{2}-/.test(label.detail ?? label.name);
-  if (!me || hasIdentifier || state === 'done') return null;
-  return (
-    <div className="panel stack">
-      <p className="panel__title panel__title--plain"><Icon name="qr" /> {t('traceability.identifierTitle')}</p>
-      <p className="panel__text">{t('traceability.identifierExplain')}</p>
-      <label className="y-label" htmlFor={uid}>{t('traceability.country')}</label>
-      <CountrySelect id={uid} value={country} onChange={setCountry} />
-      <button type="button" className="btn btn--primary" disabled={!country || state === 'busy'}
-              onClick={async () => { setState('busy'); setState(await claimIdentifier(session, country)); }}>
-        {t('traceability.identifierClaim')}
-      </button>
-      {state === 'unavailable' && <p className="note note--warn" role="alert">{t('traceability.identifierUnavailable')}</p>}
-      {state === 'refused' && <p className="note note--warn" role="alert">{t('traceability.identifierRefused')}</p>}
-    </div>
-  );
 }

@@ -1,13 +1,13 @@
 /**
  * How the app names an account instead of printing its address: the shop's
- * name for a shop's own account, "Team · <shop>" for its staff, the account's
- * x/alias identifier (SN-K3M9-7QRT-B) for anyone who has one, and a short form
- * of the address only when none of those exists. The full address stays one
- * hover or long-press away, in the title.
+ * name for a shop's own account; the person's name, from their profile, for
+ * anyone who gave one; "Team · <shop>" for staff; the account's x/alias
+ * identifier (SN-K3M9-7QRT-B) beside any of those, or alone; and a short form
+ * of the address only when none exists. The full address is in the title.
  *
- * Every name here comes from the chain: a shop's name is what its registration
- * says, and an identifier is assigned by the chain rather than chosen, so a
- * label cannot be borrowed by somebody else.
+ * A shop's name and an identifier come from the chain and cannot be borrowed.
+ * A person's name is what they wrote in their profile, which is why the
+ * identifier is shown next to it: two people can share a name, never a code.
  */
 
 import { useEffect, useState } from 'react';
@@ -25,13 +25,42 @@ function loadJewelers(): Promise<Jeweler[]> {
   return jewelers;
 }
 
-// Labels on screen re-read when an identifier is issued in this tab.
+// Labels on screen re-read when an identifier is issued, or names become readable.
 const listeners = new Set<() => void>();
+const notify = () => { for (const l of listeners) l(); };
+
+// People's names are read with the signed-in account's key, so the reader is
+// installed by the session while it is unlocked and removed when it locks.
+type NameReader = (address: string) => Promise<string | null>;
+let nameReader: NameReader | null = null;
+const people = new Map<string, Promise<string | null>>();
+
+export function setNameReader(reader: NameReader | null): void {
+  nameReader = reader;
+  people.clear();
+  notify();
+}
+
+/** Drop a remembered name (after the account saves its profile) and refresh the labels. */
+export function forgetName(address: string): void {
+  people.delete(address);
+  notify();
+}
+
+function loadName(address: string): Promise<string | null> {
+  if (!nameReader) return Promise.resolve(null);
+  let p = people.get(address);
+  if (!p) {
+    p = nameReader(address).catch(() => null);
+    people.set(address, p);
+  }
+  return p;
+}
 
 /** Drop what is known of an account's identifier, and refresh every label showing it. */
 export function forgetAlias(address: string): void {
   aliases.delete(address);
-  for (const l of listeners) l();
+  notify();
 }
 
 function loadAlias(address: string): Promise<string | null> {
@@ -45,11 +74,13 @@ function loadAlias(address: string): Promise<string | null> {
 
 export interface AccountLabel { name: string; detail: string | null }
 
-export function labelFor(address: string, js: Jeweler[], alias: string | null): AccountLabel {
+export function labelFor(address: string, js: Jeweler[], alias: string | null, person: string | null = null): AccountLabel {
   const shop = js.find((j) => j.business === address);
   if (shop) return { name: shop.name, detail: alias };
   const team = js.find((j) => j.staff.includes(address));
-  if (team) return { name: t('traceability.accountTeamOf', { shop: team.name }), detail: alias };
+  const teamLabel = team ? t('traceability.accountTeamOf', { shop: team.name }) : null;
+  if (person) return { name: person, detail: [teamLabel, alias].filter(Boolean).join(' · ') || null };
+  if (teamLabel) return { name: teamLabel, detail: alias };
   if (alias) return { name: alias, detail: null };
   return { name: shortAddress(address), detail: null };
 }
@@ -64,8 +95,8 @@ export function useAccountLabel(address: string): AccountLabel {
   }, []);
   useEffect(() => {
     let live = true;
-    Promise.all([loadJewelers(), loadAlias(address)]).then(([js, alias]) => {
-      if (live) setLabel(labelFor(address, js, alias));
+    Promise.all([loadJewelers(), loadAlias(address), loadName(address)]).then(([js, alias, person]) => {
+      if (live) setLabel(labelFor(address, js, alias, person));
     });
     return () => { live = false; };
   }, [address, version]);

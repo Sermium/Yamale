@@ -13,7 +13,7 @@ import { sha256 } from '@noble/hashes/sha2';
 
 import { compressedPublicKey, signArbitrary, toBase64, toHex } from './jewel.ts';
 
-export type TraceabilityPurpose = 'file' | 'profile' | 'sponsor' | 'application' | 'catalogue-import' | 'catalogue-read' | 'design-save' | 'design-confirm' | 'cardvault-read' | 'cardvault-put' | 'onboard';
+export type TraceabilityPurpose = 'file' | 'profile' | 'sponsor' | 'application' | 'catalogue-import' | 'catalogue-read' | 'design-save' | 'design-confirm' | 'cardvault-read' | 'cardvault-put' | 'onboard' | 'person-save' | 'person-read' | 'person-lookup';
 
 const utf8 = new TextEncoder();
 

@@ -14,10 +14,12 @@ import { t } from '@yamale/chain';
 
 import { QrCode } from '../../../app/src/qr.tsx';
 import { BusinessMoveInvite } from '../atelier/shop/BusinessMove.tsx';
-import { SERVICES } from '../config.ts';
+import { CHAIN_ID, SERVICES } from '../config.ts';
 import { Purse } from '../market/Purse.tsx';
 import { ProfileCode } from './names.tsx';
-import { claimIdentifier, CountrySelect, guessCountry, IdentifierPanel } from './identifier.tsx';
+import { claimIdentifier, CountrySelect, guessCountry } from './identifier.tsx';
+import { ProfileSection } from './profile.tsx';
+import { savePerson } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
 import { AppBar, Section } from '../ui.tsx';
@@ -38,6 +40,9 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
   const [again, setAgain] = useState('');
   const [factor, setFactor] = useState<'email' | 'totp'>('email');
   const [country, setCountry] = useState(guessCountry);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
   const [step, setStep] = useState<'form' | 'making' | 'sponsoring' | 'identifying' | 'protecting' | 'failed' | 'unprotected' | 'authenticator'>('form');
   const [error, setError] = useState('');  // a catalogue key, never raw English
 
@@ -46,7 +51,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (tooShort || differs || !email.includes('@') || !country) return;
+    if (tooShort || differs || !email.includes('@') || !country || !firstName.trim() || !lastName.trim()) return;
     onBusy?.(true);
     try {
       setStep('making');
@@ -66,6 +71,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
     // Best effort, like sponsorship: an account without its identifier yet is
     // offered it again on the Account page.
     setStep('identifying');
+    await session.withKey((k) => savePerson(k, session.address!, { first_name: firstName.trim(), last_name: lastName.trim(), birth_date: birthDate }, CHAIN_ID)).catch(() => undefined);
     await claimIdentifier(session, country).catch(() => undefined);
     await saveCopies();
   }
@@ -105,17 +111,24 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
   return (
     <form className="stack" onSubmit={submit}>
       <p className="hint">{t('traceability.createLede')}</p>
+      <label className="y-label" htmlFor={uid + '-first'}>{t('traceability.firstName')}</label>
+      <input id={uid + '-first'} className="bigfield" autoComplete="given-name" maxLength={60} value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+      <label className="y-label" htmlFor={uid + '-last'}>{t('traceability.lastName')}</label>
+      <input id={uid + '-last'} className="bigfield" autoComplete="family-name" maxLength={60} value={lastName} onChange={(e) => setLastName(e.target.value)} required />
       <label className="y-label" htmlFor={uid + '-email'}>{t('traceability.email')}</label>
       <input id={uid + '-email'} className="bigfield" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <label className="y-label" htmlFor={uid + '-country'}>{t('traceability.country')}</label>
+      <CountrySelect id={uid + '-country'} value={country} onChange={setCountry} />
+      <p className="hint">{t('traceability.countryHint')}</p>
+      <label className="y-label" htmlFor={uid + '-birth'}>{t('traceability.birthDateOptional')}</label>
+      <input id={uid + '-birth'} className="bigfield" type="date" autoComplete="bday" value={birthDate} min="1900-01-01" max={new Date().toISOString().slice(0, 10)} onChange={(e) => setBirthDate(e.target.value)} />
+      <p className="hint">{t('traceability.profileVisibility')}</p>
       <label className="y-label" htmlFor={uid + '-pw'}>{t('traceability.password')}</label>
       <input id={uid + '-pw'} className="bigfield" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
       {tooShort && <p className="hint">{t('traceability.passwordShort', { n: MIN_PASSWORD })}</p>}
       <label className="y-label" htmlFor={uid + '-pw2'}>{t('traceability.passwordAgain')}</label>
       <input id={uid + '-pw2'} className="bigfield" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
       {differs && <p className="hint">{t('traceability.passwordDiffers')}</p>}
-      <label className="y-label" htmlFor={uid + '-country'}>{t('traceability.country')}</label>
-      <CountrySelect id={uid + '-country'} value={country} onChange={setCountry} />
-      <p className="hint">{t('traceability.countryHint')}</p>
       <p className="note">{t('traceability.passwordWarning')}</p>
       <fieldset className="stack">
         <legend className="y-label">{t('traceability.factor')}</legend>
@@ -123,7 +136,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
         <label className="tick"><input type="radio" name={uid + '-factor'} checked={factor === 'totp'} onChange={() => setFactor('totp')} /> {t('traceability.factorTotp')}</label>
       </fieldset>
       {step === 'failed' && <p className="note note--warn" role="alert">{t(error, { n: MIN_PASSWORD })}</p>}
-      <button className="btn btn--primary" disabled={tooShort || differs || !country}>{t('traceability.createButton')}</button>
+      <button className="btn btn--primary" disabled={tooShort || differs || !country || !firstName.trim() || !lastName.trim()}>{t('traceability.createButton')}</button>
     </form>
   );
 }
@@ -449,7 +462,7 @@ export function AccountScreen() {
           </header>
 
           <Purse address={a.address} />
-          <IdentifierPanel session={session} />
+          <ProfileSection session={session} />
 
           {/* A shop moving to this account is offered here: until it accepts, the account has no Atelier tab to find it in. */}
           <BusinessMoveInvite me={a.address} onDone={() => window.location.assign('/atelier')} />
