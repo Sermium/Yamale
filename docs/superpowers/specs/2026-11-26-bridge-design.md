@@ -37,9 +37,11 @@ marked as a decision below.
    every unit traceable to whoever issued it.
 4. **Redemption can never be paused by the operator** (`x/custody`): an issuer
    who can stop you leaving is not a custodian.
-5. **Yamalé does not hold customers' money.** Licensed partners do. Whether the
-   platform may touch money at all, even for a moment at checkout, is a
-   question for counsel before the first partner is signed.
+5. **Yamalé receives the money and issues the tokens** (owner's decision,
+   2026-11-26). Fiat paid in lands in Yamalé's own account for that currency;
+   tokens are issued against it one for one; Yamalé pays fiat back when a
+   holder cashes out. On the chain Yamalé still cannot move anybody's tokens:
+   its only power over a balance is the freeze that governance votes.
 
 ## Already on the chain
 
@@ -77,39 +79,49 @@ against two attestations of an external reference, and leaves through
 independent parties instead of one key, issuance capped by an attested reserve,
 and a public solvency query.
 
-### Rail 1: fiat, through licensed partners
+### Rail 1: fiat, received by Yamalé
 
-For each currency, one partner holds the money: a bank or e-money institution
-licensed where the currency is used.
+Yamalé is the recipient of the money and the issuer of the tokens. For each
+currency it holds a **safeguarding account** in its own name at a bank, kept
+apart from its operating money: the reserve behind every token of that
+currency. Payment partners only move money in and out of it: a card acquirer
+for cards, mobile-money operators, banks for transfers.
 
-- **Registered on the chain as a custody asset** whose source is the partner,
-  e.g. `source_chain: "bank:<partner>"`, with the partner and Yamalé operations
-  as the two attestors. (A third, independent attestor is better once there is
-  one: an auditor or a second partner.)
-- **In by bank transfer:** pay.yamaletech shows the partner's account and a
-  reference unique to this deposit (`YML-7K2Q-9M4D`). When the partner's
-  statement shows it, the partner's attestor and Yamalé's attestor each confirm
-  arrival with the bank's own reference. Two attestations, one mint, to the
-  account named by the deposit.
-- **In by card or mobile money:** the payment processor collects and settles
-  **directly into the partner's account**; Yamalé is never the merchant of
-  record and never holds the money, even for a moment. The processor's webhook
-  only opens the deposit. Nothing is credited until the money has settled in the
-  partner's account and both attestors have confirmed it: a processor's
-  "succeeded" can still be reversed, and tokens minted against money that never
-  arrives are tokens with nothing behind them.
+- **Registered on the chain as a custody asset** whose source is the
+  safeguarding account, e.g. `source_chain: "bank:<bank>"`, with the partner
+  that carried the payment and Yamalé operations as the two attestors. (A third,
+  independent attestor is better once there is one: the safeguarding bank or an
+  auditor.)
+- **In by bank transfer:** pay.yamaletech shows Yamalé's account and a
+  reference unique to this deposit (`YML-7K2Q-9M4D`). When the bank statement
+  shows it, the bank's attestor and Yamalé's attestor each confirm arrival with
+  the bank's own reference. Two attestations, one mint, to the account named by
+  the deposit.
+- **In by card or mobile money:** Yamalé is the merchant; the acquirer or the
+  mobile-money operator collects and settles into the safeguarding account. The
+  processor's webhook only opens the deposit. Nothing is credited until the
+  money has settled in Yamalé's account and both attestors have confirmed it: a
+  processor's "succeeded" can still be reversed, and tokens minted against
+  money that never arrives are tokens with nothing behind them.
 - **Cards are reversible even after settlement.** A cardholder can dispute for
   around 120 days. Card payments therefore require 3-D Secure (fraud disputes
   then fall on the card issuer), a per-payment and per-account limit, and the
-  partner's rolling reserve with the processor covers what disputes remain. Bank
-  transfers and mobile money are final once settled.
-- **Reserve:** the partner reports what it holds for the currency at least daily
-  (`ReportReserve`); issuance stops if the report is older than
-  `reserve_report_max_age_blocks` (today 0, meaning not enforced: set it).
-- **Out:** the person asks to cash out to a bank account or a mobile-money
-  number they verified. `RequestRedemption` burns the tokens and queues the
-  payout; after the delay the partner pays and an attestor settles with the
-  payout's reference. A returned payout is credited back by a new attestation.
+  acquirer's rolling reserve on Yamalé's merchant account covers what disputes
+  remain. Bank transfers and mobile money are final once settled.
+- **Reserve:** the safeguarding account's balance is reported at least daily
+  (`ReportReserve`), from the bank's statement; issuance stops if the report is
+  older than `reserve_report_max_age_blocks` (today 0, meaning not enforced:
+  set it).
+- **Out:** a merchant (or anybody) cashes out to a bank account or a
+  mobile-money number they verified. `RequestRedemption` burns the tokens and
+  queues the payout; after the delay Yamalé pays from the safeguarding account
+  through the partner, and an attestor settles with the payout's reference. A
+  returned payout is credited back by a new attestation.
+- **The licence.** Receiving money and issuing tokens redeemable for it at par
+  is e-money issuance in most of the jurisdictions in view (an EME licence in
+  the CFA-franc zone, an EMI in the EU, a PSP licence in Kenya…). Yamalé needs
+  that licence, or operates under a licensed institution's, in each currency's
+  jurisdiction: for counsel before the first currency goes live.
 
 This replaces partners minting through `x/stablecoin` directly. A partner that
 wants to run its own issuance can still be approved as an `x/stablecoin` issuer,
@@ -151,8 +163,9 @@ Later, and only where no native path like Noble exists.
 ## The service: yamale-ramp
 
 One off-chain service, next to the traceability API on yamale-us at first and
-on its own host before mainnet. It holds no customer money and no minting key;
-it holds Yamalé's attestor key (one of two) and orchestrates.
+on its own host before mainnet. It holds no minting key and cannot pay out of the
+safeguarding accounts by itself; it holds Yamalé's attestor key (one of two)
+and orchestrates.
 
 - **Intents:** `POST /v1/deposits {rail, currency, amount, account, return_url}`
   returns what the person must do: bank details and reference, a processor
@@ -160,8 +173,8 @@ it holds Yamalé's attestor key (one of two) and orchestrates.
   /v1/deposits/{id}` reports `waiting → seen → credited` (or `expired`,
   `returned`). Cash-out is the mirror: `POST /v1/payouts`.
 - **Evidence in:** processor webhooks (Lomi and Flutterwave already take live
-  payments for yamalelegal, and Flutterwave covers mobile money), the partner's
-  statement feed or desk, chain watchers.
+  payments for yamalelegal, and Flutterwave covers mobile money), the
+  safeguarding bank's statement feed or desk, chain watchers.
 - **Attestation:** Yamalé's attestor signs `AttestDeposit` only when its own
   evidence matches the intent (amount, currency, reference, account). The
   partner's attestor signs from the partner's side. Neither can credit alone.
@@ -238,14 +251,15 @@ it holds Yamalé's attestor key (one of two) and orchestrates.
    payments, mobile-money operators, banks for transfers; each a custody asset
    source with its own attestor.
 4. **Attestors: the partner and Yamalé.**
-5. **Credit only when the money is ours**: settled in the partner's account and
-   attested by both, never on a processor's confirmation alone.
-6. **Yamalé touches no money.** On the chain it can do nothing to a balance
-   except the freeze governance votes; off the chain, processors settle into
-   partners' accounts and Yamalé is never merchant of record.
+5. **Credit only when the money is ours**: settled in Yamalé's safeguarding
+   account and attested by both, never on a processor's confirmation alone.
+6. **Yamalé is the recipient and the issuer.** It receives the fiat, issues the
+   tokens to the buyer or the merchant, and pays fiat back when they cash out.
+   On the chain it can do nothing to a balance except the freeze governance
+   votes.
 
-Still open: which partners first, and counsel's view on the licences each
-partner needs.
+Still open: which partners first, the safeguarding bank per currency, and
+counsel's view on the e-money licence each currency's jurisdiction requires.
 
 ## Not in this design
 
