@@ -11,10 +11,10 @@
  * so the person keeps a single entry in their authenticator app.
  */
 
-import { restore, ROLE_CUSTODIAN, ROLE_RECOVERY } from '../../../wallet/src/account/protect.ts';
-import { canonicalEmail, type Holding } from '../../../wallet/src/account/deposit.ts';
-import type { Services } from '../../../wallet/src/account/enrol.ts';
-import { addressOfPublicKey, compressedPublicKey } from '../../../sdk/src/jewel.ts';
+import { restore, ROLE_CUSTODIAN, ROLE_RECOVERY } from '../../wallet/src/account/protect.ts';
+import { canonicalEmail, type Holding } from '../../wallet/src/account/deposit.ts';
+import type { Services } from '../../wallet/src/account/enrol.ts';
+import { addressOfPublicKey, compressedPublicKey } from '../../sdk/src/jewel.ts';
 
 export type SignInFailure =
   | 'wrong'          // the email, password or code did not match

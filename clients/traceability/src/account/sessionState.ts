@@ -1,4 +1,4 @@
-import { readAccount, type KeyStore, type StoredAccount } from './device.ts';
+import { readAccount, type KeyStore, type StoredAccount } from '../../../shared/account/device.ts';
 
 /**
  * What the session holds for the account on this device: always locked, since

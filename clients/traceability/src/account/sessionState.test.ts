@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { sessionAccountState } from './sessionState.ts';
-import { writeImportedAccount, type KeyStore, type StoredAccount } from './device.ts';
+import { writeImportedAccount, type KeyStore, type StoredAccount } from '../../../shared/account/device.ts';
 
 const memory = (): KeyStore => {
   const data: Record<string, string> = {};

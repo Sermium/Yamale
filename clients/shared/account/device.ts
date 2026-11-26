@@ -1,5 +1,11 @@
 /**
- * The account on this device.
+ * The account on this device, shared by every Yamale app.
+ *
+ * Every app (traceability, pay, the wallet…) holds the same kind of account and
+ * signs in through the same custodian and recovery services, so one email and
+ * password reach the same key, the same address, and so the same identifier
+ * and profile everywhere. Storage is per origin: each app keeps its own sealed
+ * copy under the one key name below.
  *
  * One secp256k1 key, made here, sealed under the person's password with the
  * wallet's own seal (Argon2id, then XChaCha20-Poly1305), and kept in this
@@ -14,9 +20,9 @@
 
 import { secp256k1 } from '@noble/curves/secp256k1';
 
-import { open, seal, WrongSeal, type Sealed } from '../../../wallet/src/account/seal.ts';
-import { canonicalEmail } from '../../../wallet/src/account/deposit.ts';
-import { addressOfPublicKey, compressedPublicKey, fromBase64Url, toBase64Url } from '../../../sdk/src/jewel.ts';
+import { open, seal, WrongSeal, type Sealed } from '../../wallet/src/account/seal.ts';
+import { canonicalEmail } from '../../wallet/src/account/deposit.ts';
+import { addressOfPublicKey, compressedPublicKey, fromBase64Url, toBase64Url } from '../../sdk/src/jewel.ts';
 
 export interface KeyStore {
   getItem(k: string): string | null;
@@ -32,6 +38,7 @@ export interface StoredAccount {
   sealed: WireSealed;
   createdAt: string;
   protection: 'none' | 'enrolled';
+  /** Whether the platform pays this account's network fees (traceability's sponsor). */
   sponsored: boolean;
   /**
    * The version of the sponsor's message list this account was granted. The
@@ -41,12 +48,11 @@ export interface StoredAccount {
   sponsorList?: number;
 }
 
-/** The sponsor's current message list version (traceabilityapi ownerList). */
-export const SPONSOR_LIST = 4;
-
 export const MIN_PASSWORD = 10;
 export const ACCOUNT_EXISTS = 'this device already holds an account; forget it first';
-const KEY = 'yamale.traceability.account';
+const KEY = 'yamale.account';
+// Where traceability kept it before the account was shared; moved on first read.
+const LEGACY_KEY = 'yamale.traceability.account';
 
 export class WrongPassword extends Error {
   constructor() { super('That password does not open this account.'); this.name = 'WrongPassword'; }
@@ -67,7 +73,14 @@ const fromWire = (w: WireSealed): Sealed => ({
 
 export function readAccount(store: KeyStore = browserStore()): StoredAccount | null {
   try {
-    const raw = store.getItem(KEY);
+    let raw = store.getItem(KEY);
+    if (raw === null) {
+      raw = store.getItem(LEGACY_KEY);
+      if (raw !== null) {
+        store.setItem(KEY, raw);
+        store.removeItem(LEGACY_KEY);
+      }
+    }
     return raw ? (JSON.parse(raw) as StoredAccount) : null;
   } catch {
     return null;
@@ -80,7 +93,7 @@ export function readAccount(store: KeyStore = browserStore()): StoredAccount | n
  * password never travelled. Refuses to replace an account already here.
  */
 export function writeImportedAccount(acct: StoredAccount, store: KeyStore = browserStore()): void {
-  if (store.getItem(KEY) !== null) throw new Error(ACCOUNT_EXISTS);
+  if (readAccount(store) !== null) throw new Error(ACCOUNT_EXISTS);
   store.setItem(KEY, JSON.stringify(acct));
   if (readAccount(store)?.address !== acct.address) {
     store.removeItem(KEY);

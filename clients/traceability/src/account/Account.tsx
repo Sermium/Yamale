@@ -23,10 +23,10 @@ import { savePerson } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
 import { AppBar, Section } from '../ui.tsx';
-import { ACCOUNT_EXISTS, MIN_PASSWORD, WrongPassword } from './device.ts';
-import { claimRecovered } from './recover.ts';
+import { ACCOUNT_EXISTS, MIN_PASSWORD, WrongPassword } from '../../../shared/account/device.ts';
+import { claimRecovered } from '../../../shared/account/recover.ts';
 import { useSession } from './session.tsx';
-import { beginAuthenticator, confirmAuthenticator, deviceLabel, signIn, startSignIn, type SignInFailure } from './signin.ts';
+import { beginAuthenticator, confirmAuthenticator, deviceLabel, signIn, startSignIn, type SignInFailure } from '../../../shared/account/signin.ts';
 
 const lang = () => (typeof document !== 'undefined' ? document.documentElement.lang : '') || 'en';
 const digits = (v: string) => v.replace(/[^0-9]/g, '');

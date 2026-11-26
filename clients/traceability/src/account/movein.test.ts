@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { acceptMove, safeTarget } from './movein.ts';
-import type { KeyStore, StoredAccount } from './device.ts';
+import type { KeyStore, StoredAccount } from '../../../shared/account/device.ts';
 
-const KEY = 'yamale.traceability.account';
+const KEY = 'yamale.account';
 const memory = (init: Record<string, string> = {}): KeyStore & { data: Record<string, string> } => {
   const data = { ...init };
   return { data, getItem: (k) => data[k] ?? null, setItem: (k, v) => { data[k] = v; }, removeItem: (k) => { delete data[k]; } };

@@ -6,7 +6,7 @@
  * sent to any server. The account is sealed under its owner's password
  * (device.ts), so what travels cannot be opened without it.
  */
-import { readAccount, writeImportedAccount, type KeyStore, type StoredAccount } from './device.ts';
+import { readAccount, writeImportedAccount, type KeyStore, type StoredAccount } from '../../../shared/account/device.ts';
 
 export type MoveOutcome =
   | { kind: 'stored'; address: string; to: string }

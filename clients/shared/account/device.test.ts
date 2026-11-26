@@ -34,3 +34,14 @@ test('flags update in place, and forgetting removes everything', async () => {
   forgetAccount(store);
   assert.equal(readAccount(store), null);
 });
+
+test('an account stored under the old traceability key is moved to the shared key on first read', () => {
+  const mem = new Map<string, string>();
+  const store: KeyStore = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => { mem.set(k, v); }, removeItem: (k) => { mem.delete(k); } };
+  const old = { address: 'yml1old', email: 'a@b.c', sealed: { salt: '', nonce: '', ciphertext: '', time: 1, memory: 1, threads: 1 }, createdAt: '', protection: 'none', sponsored: false };
+  mem.set('yamale.traceability.account', JSON.stringify(old));
+  assert.equal(readAccount(store)?.address, 'yml1old');
+  assert.equal(mem.has('yamale.traceability.account'), false);
+  assert.equal(JSON.parse(mem.get('yamale.account')!).address, 'yml1old');
+  assert.equal(readAccount(store)?.address, 'yml1old');
+});

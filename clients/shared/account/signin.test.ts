@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { protect, ROLE_CUSTODIAN, ROLE_RECOVERY } from '../../../wallet/src/account/protect.ts';
-import { addressOfPublicKey, compressedPublicKey, toBase64 } from '../../../sdk/src/jewel.ts';
+import { protect, ROLE_CUSTODIAN, ROLE_RECOVERY } from '../../wallet/src/account/protect.ts';
+import { addressOfPublicKey, compressedPublicKey, toBase64 } from '../../sdk/src/jewel.ts';
 import { base32, beginAuthenticator, deviceLabel, failureOf, signIn, startSignIn } from './signin.ts';
 
 const services = { custodianUrl: 'http://custodian', recoveryUrl: 'http://recovery' };

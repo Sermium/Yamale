@@ -16,9 +16,12 @@ import { forgetEnrolment, rememberEnrolment } from '../../../wallet/src/account/
 import { requestSponsorship, sponsorInfo } from '../api.ts';
 import { CHAIN_ID, GAS_PRICE, RPC_ENDPOINT, SERVICES } from '../config.ts';
 import {
-  ACCOUNT_EXISTS, adoptKey, createAccount, forgetAccount, readAccount, SPONSOR_LIST, unlockAccount, updateAccount, type StoredAccount,
-} from './device.ts';
-import { protectionOutcome } from './protection.ts';
+  ACCOUNT_EXISTS, adoptKey, createAccount, forgetAccount, readAccount, unlockAccount, updateAccount, type StoredAccount,
+} from '../../../shared/account/device.ts';
+import { protectionOutcome } from '../../../shared/account/protection.ts';
+
+/** The sponsor's current message list version (traceabilityapi ownerList). */
+export const SPONSOR_LIST = 4;
 import { sessionAccountState } from './sessionState.ts';
 
 const IDLE_MS = 10 * 60 * 1000;

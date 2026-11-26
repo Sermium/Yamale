@@ -12,10 +12,10 @@
  * For that the platform proposes reassigning the jewels, publicly, over 30 days.
  */
 
-import { restore, ROLE_CUSTODIAN, ROLE_RECOVERY } from '../../../wallet/src/account/protect.ts';
-import { canonicalEmail, type Holding } from '../../../wallet/src/account/deposit.ts';
-import type { Services } from '../../../wallet/src/account/enrol.ts';
-import { addressOfPublicKey, compressedPublicKey } from '../../../sdk/src/jewel.ts';
+import { restore, ROLE_CUSTODIAN, ROLE_RECOVERY } from '../../wallet/src/account/protect.ts';
+import { canonicalEmail, type Holding } from '../../wallet/src/account/deposit.ts';
+import type { Services } from '../../wallet/src/account/enrol.ts';
+import { addressOfPublicKey, compressedPublicKey } from '../../sdk/src/jewel.ts';
 
 export interface RecoveryClaim {
   recoveryId: string;
