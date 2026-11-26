@@ -63,7 +63,8 @@ export function ProposeBusinessMove({ jeweler, me, isStaff, onChange }: {
 }
 
 /**
- * The named account's side, shown in the Atelier: accept, and in the same
+ * The named account's side, shown in the Atelier and on the Account page (a
+ * new account has no Atelier tab yet): accept, and in the same
  * transaction give each member of staff the fee allowance the old account gave.
  */
 export function BusinessMoveInvite({ me, onDone }: { me: string; onDone: () => void }) {

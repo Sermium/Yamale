@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { t } from '@yamale/chain';
 
 import { QrCode } from '../../../app/src/qr.tsx';
+import { BusinessMoveInvite } from '../atelier/shop/BusinessMove.tsx';
 import { SERVICES } from '../config.ts';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
@@ -437,6 +438,9 @@ export function AccountScreen() {
               </div>
             </div>
           </header>
+
+          {/* A shop moving to this account is offered here: until it accepts, the account has no Atelier tab to find it in. */}
+          <BusinessMoveInvite me={a.address} onDone={() => window.location.assign('/atelier')} />
 
           {a.protection !== 'enrolled' && (
             <div className="panel panel--warn stack">
