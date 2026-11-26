@@ -7,6 +7,7 @@
  */
 
 import { fromBech32, toBech32 } from '@cosmjs/encoding';
+import { useAccountLabel } from '../../account/names.tsx';
 import { useState } from 'react';
 import { acceptBusinessMove, chainHead, grantStaffFees, proposeBusinessMove, readJewelers, t, type Jeweler } from '@yamale/chain';
 
@@ -21,7 +22,6 @@ import { Section, useLoad } from '../../ui.tsx';
 export const STAFF_BUDGET = [{ denom: 'uyml', amount: '5000000' }];
 const YEAR = 365 * 86_400_000;
 
-const short = (a: string) => `${a.slice(0, 8)}…${a.slice(-4)}`;
 const date = (unix: string) => new Date(Number(unix) * 1000).toLocaleDateString();
 
 /** The business account's side: propose a move, or withdraw it. */
@@ -32,6 +32,7 @@ export function ProposeBusinessMove({ jeweler, me, isStaff, onChange }: {
   const [code, setCode] = useState('');
   const [action, run] = useAction();
   const pending = jeweler.pendingBusiness;
+  const pendingName = useAccountLabel(pending || jeweler.business).name;
 
   async function propose(to: string) {
     if (await run(() => session.submit([proposeBusinessMove(me, jeweler.id, to)], null))) { setCode(''); onChange(); }
@@ -43,7 +44,7 @@ export function ProposeBusinessMove({ jeweler, me, isStaff, onChange }: {
       {!isStaff && <p className="note note--warn">{t('traceability.shopMoveNotStaff')}</p>}
       {pending ? (
         <>
-          <p className="note">{t('traceability.shopMovePending', { account: short(pending), date: date(jeweler.pendingBusinessUntil) })}</p>
+          <p className="note">{t('traceability.shopMovePending', { account: pendingName, date: date(jeweler.pendingBusinessUntil) })}</p>
           <button type="button" className="btn" disabled={action.kind === 'busy'} onClick={() => propose('')}>
             {t('traceability.shopMoveWithdraw')}
           </button>

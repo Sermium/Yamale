@@ -16,6 +16,7 @@ import { QrCode } from '../../../app/src/qr.tsx';
 import { BusinessMoveInvite } from '../atelier/shop/BusinessMove.tsx';
 import { SERVICES } from '../config.ts';
 import { Purse } from '../market/Purse.tsx';
+import { ProfileCode } from './names.tsx';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
 import { AppBar, Section } from '../ui.tsx';
@@ -384,8 +385,6 @@ function RecoverForm() {
   );
 }
 
-const shortCode = (a: string) => `${a.slice(0, 10)}…${a.slice(-6)}`;
-
 export function AccountScreen() {
   const session = useSession();
   const [confirmForget, setConfirmForget] = useState(false);
@@ -430,7 +429,7 @@ export function AccountScreen() {
             <span className="profile__avatar" aria-hidden="true">{(a.email || '?').charAt(0).toUpperCase()}</span>
             <div className="profile__text">
               <p className="profile__email">{a.email}</p>
-              <p className="profile__code">{shortCode(a.address)}</p>
+              <ProfileCode address={a.address} />
               <div className="profile__meta">
                 <span className={`y-chip ${a.protection === 'enrolled' ? 'y-chip--ok' : 'y-chip--warn'}`}>
                   {a.protection === 'enrolled' ? t('traceability.protected') : t('traceability.onlyHere')}

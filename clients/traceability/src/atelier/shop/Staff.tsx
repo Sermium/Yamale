@@ -6,6 +6,7 @@
  */
 
 import { fromBech32, toBech32 } from '@cosmjs/encoding';
+import { AccountName } from '../../account/names.tsx';
 import { useState } from 'react';
 import { feeAllowanceExists, grantStaffFees, revokeFeeAllowance, setJewelStaff, t } from '@yamale/chain';
 
@@ -23,7 +24,6 @@ function canonical(code: string): string {
   const { prefix, data } = fromBech32(code.trim());
   return toBech32(prefix, data);
 }
-const short = (a: string) => `${a.slice(0, 8)}…${a.slice(-4)}`;
 
 export function Staff() {
   const session = useSession();
@@ -77,7 +77,7 @@ export function Staff() {
             <ul className="y-cards">
               {j.staff.map((s) => (
                 <li key={s} className="y-card staff-row">
-                  <span className="inscription">{short(s)}{s === me ? ` · ${t('traceability.you')}` : ''}</span>
+                  <AccountName address={s} me={me} />
                   <button type="button" className="btn btn--danger" disabled={action.kind === 'busy'} onClick={() => remove(s)}>{t('traceability.remove')}</button>
                 </li>
               ))}

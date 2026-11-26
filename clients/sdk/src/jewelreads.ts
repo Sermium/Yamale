@@ -19,6 +19,7 @@ import {
 import { QueryNFTsRequest, QueryNFTsResponse } from './generated/cosmos/nft/v1beta1/query.ts';
 import { QueryAllBalancesRequest, QueryAllBalancesResponse, QueryBalanceRequest, QueryBalanceResponse } from './generated/cosmos/bank/v1beta1/query.ts';
 import { QueryAllowanceRequest, QueryAllowanceResponse } from './generated/cosmos/feegrant/v1beta1/query.ts';
+import { QueryAliasOfRequest, QueryAliasOfResponse } from './generated/blockchain/alias/v1/query.ts';
 
 const SVC = '/blockchain.jewel.v1.Query';
 
@@ -209,6 +210,26 @@ export async function bankBalances(address: string): Promise<Outcome<{ denom: st
     (b) => QueryAllBalancesResponse.decode(b));
   if (!out.ok) return out;
   return { ok: true, height: out.height, value: out.value.balances.map((c) => ({ denom: c.denom, amount: c.amount })) };
+}
+
+/**
+ * The account's x/alias identifier in its stored form (e.g. SNK3M97QRTB), or
+ * null when it holds none. The chain assigns it; nobody chooses it.
+ */
+export async function readAliasOf(address: string): Promise<Outcome<string | null>> {
+  const out = await abciQuery('/blockchain.alias.v1.Query/AliasOf',
+    QueryAliasOfRequest.encode(QueryAliasOfRequest.fromPartial({ address })).finish());
+  if (!out.ok) return /holds no identifier|not ?found/i.test(out.detail) ? { ok: true, height: 0, value: null } : out;
+  const d = decoded(out, (b) => QueryAliasOfResponse.decode(b));
+  if (!d.ok) return d;
+  return { ok: true, height: d.height, value: d.value.alias?.id || null };
+}
+
+/** An identifier as people read it: country, the payload in fours, the check character (SN-K3M9-7QRT-B). */
+export function formatAlias(id: string): string {
+  const s = id.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (s.length < 4) return s;
+  return [s.slice(0, 2), ...(s.slice(2, -1).match(/.{1,4}/g) ?? []), s.slice(-1)].join('-');
 }
 
 export function claimSearchQuery(address: string): string {

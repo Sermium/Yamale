@@ -381,3 +381,10 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .purse__amount { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .purse__empty { margin: 0; color: var(--text-muted); }
 .purse .linkbtn { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+/* An account by its name: the shop, its team, or its chain identifier; the address is in the title. */
+.accountname { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); min-inline-size: 0; }
+.accountname__name { font-weight: 600; overflow-wrap: anywhere; }
+.accountname__detail { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--step--1); color: var(--text-muted); letter-spacing: 0.02em; }
+.accountname__you { font-size: var(--step--1); color: var(--text-muted); }
+.accountname__you::before { content: "· "; }

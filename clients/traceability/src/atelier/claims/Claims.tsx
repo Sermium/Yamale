@@ -5,6 +5,7 @@
  */
 
 import { useState } from 'react';
+import { AccountName } from '../../account/names.tsx';
 import { approveJewelClaim, claimsByJeweler, rejectJewelClaim, t, type Claim } from '@yamale/chain';
 
 import { UnlockGate } from '../../account/Account.tsx';
@@ -43,7 +44,7 @@ export function ClaimDecision({ jewelId, claim, business, canAct, onDone }: {
   const who = (
     <p className="claimrow__who">
       <span>{t('traceability.claimedBy')}</span>
-      <code className="inscription">{claim.claimer}</code>
+      <AccountName address={claim.claimer} />
       <span className="hint">{t('traceability.claimedOn', { date: day(claim.filedAt) })}</span>
     </p>
   );
