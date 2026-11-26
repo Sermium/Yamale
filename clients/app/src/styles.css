@@ -915,3 +915,12 @@ body {
   background: var(--wash-mute); color: var(--text-muted);
   letter-spacing: 0.04em;
 }
+
+/* Money sent to an email address (EmailTransfer.tsx). */
+.stack { display: grid; gap: var(--sp-2); }
+.stack-lg { display: grid; gap: var(--sp-4); }
+.section-title { margin: 0; font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.11em;
+  text-transform: uppercase; color: var(--text-muted); font-weight: 500; }
+.form label.check { display: flex; align-items: center; gap: var(--sp-2); }
+.form label.check input { width: auto; }
+.card .code { overflow-wrap: anywhere; }

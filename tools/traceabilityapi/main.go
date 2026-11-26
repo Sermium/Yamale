@@ -55,6 +55,7 @@ type server struct {
 	welcome       string  // devnet only: coins each newly sponsored account receives; empty is none
 	sender        Sender  // pays the welcome
 	onboarder     Onboarder // devnet only: registers accounts and records their country; nil is off
+	mailer        Mailer    // sends the email that money was sent to an address; nil is off
 	sponsorDaily  int
 	operatorToken string // empty: the application list is off
 	mu            sync.Mutex
@@ -88,6 +89,7 @@ func main() {
 	lifetime := flag.Duration("sponsor-for", 365*24*time.Hour, "how long an allowance lasts")
 	fees := flag.String("fees", "0uyml", "fee the sponsor pays per grant")
 	daily := flag.Int("sponsor-daily", 200, "most accounts sponsored in any 24 hours")
+	smtpFile := flag.String("smtp-file", "", "file holding the SMTP login (tools/custodian's format) for transfer notices; empty sends none")
 	onboard := flag.Bool("onboard", false, "devnet only: the sponsor is an approved participant and records the country each account chose")
 	welcome := flag.String("welcome", "", "devnet only: coins sent to each newly sponsored account, e.g. 10000000000uusdc; empty sends none")
 	floor := flag.String("sponsor-floor", "10000000uyml", "below this sponsor balance /v1/health/sponsor answers 503")
@@ -151,6 +153,13 @@ func main() {
 			log.Printf("onboarding accounts as participant %s", g.Address())
 		}
 	}
+	if *smtpFile != "" {
+		m, err := loadSMTPConfig(*smtpFile)
+		if err != nil {
+			log.Fatalf("smtp file: %v", err)
+		}
+		s.mailer = m
+	}
 	if *tokenFile != "" {
 		raw, err := os.ReadFile(*tokenFile)
 		if err != nil || len(strings.TrimSpace(string(raw))) < 32 {
@@ -192,6 +201,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/sponsor", s.handleSponsorInfo)
 	mux.HandleFunc("POST /v1/sponsor", s.handleSponsor)
 	mux.HandleFunc("POST /v1/onboard", s.handleOnboard)
+	mux.HandleFunc("POST /v1/transfers/notify", s.handleTransferNotify)
 	mux.HandleFunc("PUT /v1/people/me", s.handlePersonPut)
 	mux.HandleFunc("GET /v1/people/me", s.handlePersonMine)
 	mux.HandleFunc("GET /v1/people/{address}", s.handlePersonLookup)

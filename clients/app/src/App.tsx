@@ -31,6 +31,8 @@ import * as agents from './agents.ts';
 import * as ramp from './ramp.ts';
 import * as ledger from './ledger.ts';
 import { PasswordField } from '../../shared/account/PasswordField.tsx';
+import { EmailSend, ReceivePanel } from './EmailTransfer.tsx';
+import { pendingReceive } from './emailTransfer.ts';
 
 /**
  * The whole app runs inside a phone frame on a desktop screen, because this is
@@ -101,6 +103,7 @@ export function App() {
           <>
             <Header profile={signer.profile} onSignOut={() => { signOut(); setSigner(null); }} />
             <main className="screen">
+              <ReceivePanel signer={signer} />
               {previous && <MovePrevious previous={previous} signer={signer} onDone={() => setPrevious(null)} />}
               {screen === 'home' && <Home signer={signer} refresh={topUpDone} topping={topping} />}
               {screen === 'pay' && <Transfer signer={signer} />}
@@ -389,6 +392,7 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
       <h1>{t('app.title')}</h1>
       <p className="muted">{t('app.tagline')}</p>
       <p className="muted">{t('app.sharedAccountNote')}</p>
+      {pendingReceive() && <p className="notice">{t('app.receiveSignInFirst')}</p>}
 
       {mode === 'in' && handoffOutcome() === 'imported' && <p className="notice">{t('app.handoffImported')}</p>}
       {mode === 'in' && handoffOutcome() === 'exists' && <p className="notice notice--bad">{t('app.handoffExists')}</p>}
@@ -2137,10 +2141,11 @@ function TabIcon({ name }: { name: string }) {
  * hidden in navigation.
  */
 function Transfer({ signer }: { signer: Signer }) {
-  const [folder, setFolder] = useState<'pay' | 'secured' | 'request'>('pay');
+  const [folder, setFolder] = useState<'pay' | 'email' | 'secured' | 'request'>('pay');
 
   const folders = [
     { id: 'pay', label: t('app.tabPay') },
+    { id: 'email', label: t('app.tabEmail') },
     { id: 'secured', label: t('app.tabSecured') },
     { id: 'request', label: t('app.tabRequest') },
   ] as const;
@@ -2159,6 +2164,7 @@ function Transfer({ signer }: { signer: Signer }) {
       </div>
 
       {folder === 'pay' && <Pay signer={signer} />}
+      {folder === 'email' && <EmailSend signer={signer} />}
       {folder === 'secured' && <Secured signer={signer} />}
       {folder === 'request' && <Request signer={signer} />}
     </>

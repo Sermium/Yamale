@@ -30,6 +30,7 @@ import { enrol, privateKeyFromMnemonic, servicesAvailable, type Services } from 
 import { rememberEnrolment } from '../../wallet/src/account/stored.ts';
 import { fullName, readMyPerson, requestOnboarding, savePerson } from '../../shared/account/people.ts';
 import { signRequest, signRequestWithKey, type Signed } from './signing.ts';
+import { signedHeaders, type TraceabilityPurpose } from '../../sdk/src/traceabilityauth.ts';
 
 /** The account services, reached through this host like every Yamale app. */
 const SERVICES: Services = { custodianUrl: '/api/custodian', recoveryUrl: '/api/recovery' };
@@ -288,6 +289,19 @@ export class Signer {
 
   offlineSigner(): OfflineDirectSigner {
     return this.wallet;
+  }
+
+  /**
+   * Headers that sign a request to the Yamale APIs with this account's key, so
+   * a screen can ask them for something without ever holding the key.
+   */
+  async apiHeaders(purpose: TraceabilityPurpose, subject: string): Promise<Record<string, string>> {
+    const key = this.key ?? await privateKeyFromMnemonic((this.wallet as unknown as { mnemonic: string }).mnemonic);
+    try {
+      return signedHeaders(key, purpose, CHAIN_ID, subject);
+    } finally {
+      if (!this.key) key.fill(0);
+    }
   }
 
   /** Whether this is an old account of this app, with a phrase, rather than a shared one. */

@@ -4,6 +4,7 @@ import { registerAll, AVAILABLE, setLocale, resolveLocale } from '@yamale/chain'
 
 import { App } from './App.tsx';
 import { receiveHandoffHere } from '../../shared/account/handoff.ts';
+import { catchReceiveLink } from './emailTransfer.ts';
 // The shared visual system first, then this surface's own rules on top of it.
 import '../../shared/yamale.css';
 import './styles.css';
@@ -22,6 +23,8 @@ setLocale(resolveLocale(AVAILABLE));
 
 // An account handed over by accounts.yamaletech.com is stored before the app reads it.
 receiveHandoffHere();
+// Money sent to an email: the link is kept until the person is signed in.
+catchReceiveLink();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

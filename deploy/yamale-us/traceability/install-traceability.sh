@@ -132,6 +132,16 @@ if [ "$API" = 1 ]; then
   fi
   echo "sponsor welcome stock: $U uusdc"
 
+  # The mail login for transfer notices: the custodian already sends sign-in
+  # codes from the no-reply mailbox, so its file is copied for this service
+  # user, once, and never printed. Without it the notices are simply off.
+  if [ ! -f /etc/yamale/traceability-smtp.conf ] && sudo test -f /etc/yamale/custodian-smtp.conf; then
+    sudo install -o yamale-traceability -g yamale-traceability -m 600 /etc/yamale/custodian-smtp.conf /etc/yamale/traceability-smtp.conf
+    echo "transfer notices: mail login copied from the custodian"
+  fi
+  SMTP_FLAG=""
+  sudo test -f /etc/yamale/traceability-smtp.conf && SMTP_FLAG=" --smtp-file /etc/yamale/traceability-smtp.conf"
+
   # The operator token: created only when absent, never printed.
   sudo install -d -o root -g root -m 755 /etc/yamale
   sudo test -s $TOKEN || (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d " \n" | sudo tee $TOKEN >/dev/null)
@@ -149,7 +159,7 @@ Wants=network-online.target
 [Service]
 User=yamale-traceability
 Group=yamale-traceability
-ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --welcome 10000000000uusdc --onboard --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
+ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --welcome 10000000000uusdc --onboard${SMTP_FLAG} --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
 Restart=always
 RestartSec=5
 MemoryMax=256M
