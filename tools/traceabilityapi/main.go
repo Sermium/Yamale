@@ -54,6 +54,7 @@ type server struct {
 	granter       Granter // nil: sponsoring is off
 	welcome       string  // devnet only: coins each newly sponsored account receives; empty is none
 	sender        Sender  // pays the welcome
+	onboarder     Onboarder // devnet only: registers accounts and records their country; nil is off
 	sponsorDaily  int
 	operatorToken string // empty: the application list is off
 	mu            sync.Mutex
@@ -87,6 +88,7 @@ func main() {
 	lifetime := flag.Duration("sponsor-for", 365*24*time.Hour, "how long an allowance lasts")
 	fees := flag.String("fees", "0uyml", "fee the sponsor pays per grant")
 	daily := flag.Int("sponsor-daily", 200, "most accounts sponsored in any 24 hours")
+	onboard := flag.Bool("onboard", false, "devnet only: the sponsor is an approved participant and records the country each account chose")
 	welcome := flag.String("welcome", "", "devnet only: coins sent to each newly sponsored account, e.g. 10000000000uusdc; empty sends none")
 	floor := flag.String("sponsor-floor", "10000000uyml", "below this sponsor balance /v1/health/sponsor answers 503")
 	tokenFile := flag.String("operator-token-file", "", "file holding the bearer token that lists applications; empty turns the list off")
@@ -141,6 +143,13 @@ func main() {
 			s.welcome, s.sender = *welcome, g
 			log.Printf("each newly sponsored account receives %s", *welcome)
 		}
+		if *onboard {
+			if !welcomeAllowed(*chainID) {
+				log.Fatalf("--onboard records a country nobody checked, so it is for devnets only, and %s does not name itself one", *chainID)
+			}
+			s.onboarder = g
+			log.Printf("onboarding accounts as participant %s", g.Address())
+		}
 	}
 	if *tokenFile != "" {
 		raw, err := os.ReadFile(*tokenFile)
@@ -182,6 +191,7 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/jewelers/{id}/portfolio", s.handlePortfolio)
 	mux.HandleFunc("GET /v1/sponsor", s.handleSponsorInfo)
 	mux.HandleFunc("POST /v1/sponsor", s.handleSponsor)
+	mux.HandleFunc("POST /v1/onboard", s.handleOnboard)
 	mux.HandleFunc("POST /v1/applications", s.handleApply)
 	mux.HandleFunc("GET /v1/applications", s.handleApplications)
 	mux.HandleFunc("POST /v1/catalogue/import", s.handleCatalogueImport)

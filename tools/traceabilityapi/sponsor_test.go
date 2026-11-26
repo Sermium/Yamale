@@ -165,7 +165,9 @@ func TestTheGrantIsLimitedToOwnerMessages(t *testing.T) {
 		"--chain-id", "c-1", "--keyring-backend", "test", "--home", "/h", "--node", "tcp://n:1",
 		"--fees", "0uyml", "--gas", "250000", "-y", "--output", "json",
 	}, g.grantArgs("yml1owner"))
-	require.Len(t, ownerMessages, 13)
+	require.Len(t, ownerMessages, 15)
+	require.Contains(t, ownerMessages, "/blockchain.alias.v1.MsgRegisterAlias")
+	require.Contains(t, ownerMessages, "/blockchain.paymsg.v1.MsgConfirmParticipant")
 
 	g.home = ""
 	require.NotContains(t, g.grantArgs("yml1owner"), "--home")

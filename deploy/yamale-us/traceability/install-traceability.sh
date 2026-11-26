@@ -149,7 +149,7 @@ Wants=network-online.target
 [Service]
 User=yamale-traceability
 Group=yamale-traceability
-ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --welcome 10000000000uusdc --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
+ExecStart=/opt/yamale/bin/yamale-traceabilityapi --listen 127.0.0.1:8095 --dir /var/lib/yamale-traceability --rest http://127.0.0.1:1317 --chain-id yamale-devnet-2 --bin /opt/yamale/bin/blockchaind --from traceability-sponsor --home /opt/yamale/traceability --keyring-backend test --node tcp://127.0.0.1:26657 --sponsor 2000000uyml --sponsor-for 8760h --fees 0uyml --sponsor-daily 200 --sponsor-floor 10000000uyml --welcome 10000000000uusdc --onboard --operator-token-file /etc/yamale/traceability-operator-token${DRAFT_FLAGS}
 Restart=always
 RestartSec=5
 MemoryMax=256M

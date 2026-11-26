@@ -231,6 +231,7 @@ export {
   appointRegulator,
   grantAuditor,
   registerAlias,
+  confirmParticipant,
   registerViewingKey,
   revokeViewingKey,
   rotateAlias,

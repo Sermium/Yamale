@@ -17,6 +17,7 @@ import { BusinessMoveInvite } from '../atelier/shop/BusinessMove.tsx';
 import { SERVICES } from '../config.ts';
 import { Purse } from '../market/Purse.tsx';
 import { ProfileCode } from './names.tsx';
+import { claimIdentifier, CountrySelect, guessCountry, IdentifierPanel } from './identifier.tsx';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
 import { AppBar, Section } from '../ui.tsx';
@@ -36,7 +37,8 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
   const [password, setPassword] = useState('');
   const [again, setAgain] = useState('');
   const [factor, setFactor] = useState<'email' | 'totp'>('email');
-  const [step, setStep] = useState<'form' | 'making' | 'sponsoring' | 'protecting' | 'failed' | 'unprotected' | 'authenticator'>('form');
+  const [country, setCountry] = useState(guessCountry);
+  const [step, setStep] = useState<'form' | 'making' | 'sponsoring' | 'identifying' | 'protecting' | 'failed' | 'unprotected' | 'authenticator'>('form');
   const [error, setError] = useState('');  // a catalogue key, never raw English
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD;
@@ -44,7 +46,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (tooShort || differs || !email.includes('@')) return;
+    if (tooShort || differs || !email.includes('@') || !country) return;
     onBusy?.(true);
     try {
       setStep('making');
@@ -61,6 +63,10 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
     // into anywhere else, and signing out would lose it.
     setStep('sponsoring');
     await session.ensureSponsored().catch(() => undefined);
+    // Best effort, like sponsorship: an account without its identifier yet is
+    // offered it again on the Account page.
+    setStep('identifying');
+    await claimIdentifier(session, country).catch(() => undefined);
     await saveCopies();
   }
 
@@ -107,6 +113,9 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
       <label className="y-label" htmlFor={uid + '-pw2'}>{t('traceability.passwordAgain')}</label>
       <input id={uid + '-pw2'} className="bigfield" type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
       {differs && <p className="hint">{t('traceability.passwordDiffers')}</p>}
+      <label className="y-label" htmlFor={uid + '-country'}>{t('traceability.country')}</label>
+      <CountrySelect id={uid + '-country'} value={country} onChange={setCountry} />
+      <p className="hint">{t('traceability.countryHint')}</p>
       <p className="note">{t('traceability.passwordWarning')}</p>
       <fieldset className="stack">
         <legend className="y-label">{t('traceability.factor')}</legend>
@@ -114,7 +123,7 @@ export function CreateForm({ onDone, onBusy }: { onDone?: () => void; onBusy?: (
         <label className="tick"><input type="radio" name={uid + '-factor'} checked={factor === 'totp'} onChange={() => setFactor('totp')} /> {t('traceability.factorTotp')}</label>
       </fieldset>
       {step === 'failed' && <p className="note note--warn" role="alert">{t(error, { n: MIN_PASSWORD })}</p>}
-      <button className="btn btn--primary" disabled={tooShort || differs}>{t('traceability.createButton')}</button>
+      <button className="btn btn--primary" disabled={tooShort || differs || !country}>{t('traceability.createButton')}</button>
     </form>
   );
 }
@@ -440,6 +449,7 @@ export function AccountScreen() {
           </header>
 
           <Purse address={a.address} />
+          <IdentifierPanel session={session} />
 
           {/* A shop moving to this account is offered here: until it accepts, the account has no Atelier tab to find it in. */}
           <BusinessMoveInvite me={a.address} onDone={() => window.location.assign('/atelier')} />

@@ -54,6 +54,7 @@ export const CHAIN_MESSAGE_TYPES: ReadonlyArray<[string, GeneratedType]> = [
   ['/blockchain.paymsg.v1.MsgApplyParticipant', paymsg.MsgApplyParticipant],
   ['/blockchain.paymsg.v1.MsgApproveParticipant', paymsg.MsgApproveParticipant],
   ['/blockchain.paymsg.v1.MsgRegisterCustomer', paymsg.MsgRegisterCustomer],
+  ['/blockchain.paymsg.v1.MsgConfirmParticipant', paymsg.MsgConfirmParticipant],
 
   // Treasuries
   ['/blockchain.treasury.v1.MsgCreateTreasury', treasury.MsgCreateTreasury],

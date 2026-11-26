@@ -118,6 +118,27 @@ export async function requestSponsorship(key: Uint8Array, address: string, chain
 }
 
 /**
+ * Ask the onboarding participant to register this account as its customer and
+ * record the country the person chose, so the chain can issue the account its
+ * identifier. Devnet only; signed over "<address>:<country>".
+ */
+export async function requestOnboarding(key: Uint8Array, address: string, country: string, chainId: string):
+  Promise<{ ok: true; participant: string } | { ok: false; status: number; error: string }> {
+  try {
+    const res = await fetch(`${API}/v1/onboard`, {
+      method: 'POST',
+      headers: { ...signedHeaders(key, 'onboard', chainId, `${address}:${country}`), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ country }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, status: res.status, error: String(body.error ?? '') };
+    return { ok: true, participant: String(body.participant) };
+  } catch (err) {
+    return { ok: false, status: 0, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
  * Store a file under its fingerprint. The request is signed with the staff
  * member's key at once and the key is kept by nobody. A 503 means the API is
  * busy with other uploads and says nothing about this file: retry it.

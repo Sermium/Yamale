@@ -25,6 +25,15 @@ function loadJewelers(): Promise<Jeweler[]> {
   return jewelers;
 }
 
+// Labels on screen re-read when an identifier is issued in this tab.
+const listeners = new Set<() => void>();
+
+/** Drop what is known of an account's identifier, and refresh every label showing it. */
+export function forgetAlias(address: string): void {
+  aliases.delete(address);
+  for (const l of listeners) l();
+}
+
 function loadAlias(address: string): Promise<string | null> {
   let p = aliases.get(address);
   if (!p) {
@@ -47,13 +56,19 @@ export function labelFor(address: string, js: Jeweler[], alias: string | null): 
 
 export function useAccountLabel(address: string): AccountLabel {
   const [label, setLabel] = useState<AccountLabel>({ name: shortAddress(address), detail: null });
+  const [version, setVersion] = useState(0);
+  useEffect(() => {
+    const l = () => setVersion((v) => v + 1);
+    listeners.add(l);
+    return () => { listeners.delete(l); };
+  }, []);
   useEffect(() => {
     let live = true;
     Promise.all([loadJewelers(), loadAlias(address)]).then(([js, alias]) => {
       if (live) setLabel(labelFor(address, js, alias));
     });
     return () => { live = false; };
-  }, [address]);
+  }, [address, version]);
   return label;
 }
 

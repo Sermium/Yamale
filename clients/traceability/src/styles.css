@@ -313,6 +313,7 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
   padding: var(--sp-4); }
 .panel--warn { background: var(--wash-warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
 .panel__title { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-weight: 600; color: var(--warn-ink); }
+.panel__title--plain { color: var(--text); }
 .lockhead { display: flex; align-items: center; gap: var(--sp-3); }
 .lockhead .intro__icon { inline-size: 48px; block-size: 48px; border-radius: 14px; }
 .lockhead__title { margin: 0; font-weight: 600; }

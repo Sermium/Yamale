@@ -558,6 +558,18 @@ export function registerAlias(account: string): EncodeObject {
 }
 
 /**
+ * The account confirming the participant that registered it as a customer
+ * (or, with confirm false, leaving it). Sent with registerAlias, so the record
+ * of who onboarded the account is agreed by both sides.
+ */
+export function confirmParticipant(customer: string, participant: string, confirm = true): EncodeObject {
+  return {
+    typeUrl: '/blockchain.paymsg.v1.MsgConfirmParticipant',
+    value: { customer, participant, confirm },
+  };
+}
+
+/**
  * Retire the account's user ID and take a new one.
  *
  * For a key that has been compromised. One message rather than release then
