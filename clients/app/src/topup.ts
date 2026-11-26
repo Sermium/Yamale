@@ -1,10 +1,9 @@
 /**
  * Automatic top-up, so a demonstration never dies on an empty balance.
  *
- * On sign-in, any currency the account holds nothing of is topped up from the
- * faucet. Currencies that already have a balance are left alone, so somebody
- * demonstrating a payment does not have their carefully-arranged figures reset
- * under them mid-sentence.
+ * On sign-in, an account that holds no money yet is topped up from the faucet,
+ * every currency it holds nothing of. An account that already holds money, in
+ * any currency, is left entirely alone (holdsMoney).
  *
  * This is a testnet convenience and it is fenced as one: it calls the faucet,
  * which is a devnet service that does not exist on a real network. Nothing
@@ -12,6 +11,7 @@
  * is the whole of what it takes to make the app production-shaped.
  */
 import { CURRENCIES } from './money.ts';
+import { holdsMoney } from './holdings.ts';
 
 /** What each empty currency is topped up to, in whole units. */
 const TARGET = 1_000;
@@ -62,9 +62,10 @@ function markUnavailable(denom: string): void {
   }
 }
 
-/** True when at least one currency is empty *and* the faucet might serve it. */
+/** True when the account holds no money yet, a currency is empty, *and* the faucet might serve it. */
 export async function needsTopUp(address: string): Promise<boolean> {
   const held = await balances(address);
+  if (holdsMoney(held)) return false;
   const refused = unavailable();
   return CURRENCIES.some(
     (c) => !refused.has(c.denom) && (held.get(c.denom) ?? '0') === '0',
@@ -76,6 +77,7 @@ export async function topUpEmpty(address: string): Promise<TopUpResult> {
   const skipped: string[] = [];
 
   const held = await balances(address);
+  if (holdsMoney(held)) return { funded, skipped: CURRENCIES.map((c) => c.code) };
 
   for (const currency of CURRENCIES) {
     const amount = held.get(currency.denom) ?? '0';

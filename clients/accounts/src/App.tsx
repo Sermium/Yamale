@@ -182,13 +182,16 @@ export function App() {
       </header>
       <div className="y-phone">
         <div className="y-phone__notch" />
-        <main className="y-phone__screen screen" id="main" tabIndex={-1}>
+        {/* The frame clips; the screen inside it scrolls (yamale.css .y-screen). */}
+        <div className="y-phone__screen">
+        <main className="y-screen screen" id="main" tabIndex={-1}>
           <header className="mast">
             <img className="mast__mark" src={`${BASE}mark.png`} alt="" width={56} height={56} />
             <h1 className="mast__title">{t('accounts.heading')}</h1>
           </header>
           {body}
         </main>
+        </div>
       </div>
     </div>
   );

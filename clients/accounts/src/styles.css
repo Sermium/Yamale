@@ -6,7 +6,7 @@
 .stage__brand { display: inline-flex; align-items: center; gap: var(--sp-2);
   font-family: var(--font-display); font-weight: 600; }
 
-.screen { display: grid; gap: var(--sp-5); align-content: start; padding: var(--sp-5) var(--sp-4) var(--sp-6); }
+.screen { display: grid; gap: var(--sp-5); align-content: start; padding: var(--sp-5) var(--sp-4) var(--sp-6); min-block-size: 0; }
 .stack { display: grid; gap: var(--sp-2); }
 .mast { display: grid; gap: var(--sp-2); justify-items: start; }
 .mast__mark { inline-size: 56px; block-size: 56px; }
