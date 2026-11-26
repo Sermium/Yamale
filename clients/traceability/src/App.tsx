@@ -30,23 +30,25 @@ import { JewelPage } from './verify/JewelPage.tsx';
 import { Proof } from './verify/Proof.tsx';
 import { Search } from './verify/Search.tsx';
 import { Market } from './market/Market.tsx';
+import { Icon, type IconName } from './icons.tsx';
 
 function TabBar() {
   const session = useSession();
   const [role] = useRole(session.address);
   const tabs = [
-    { to: '/', end: true, label: t('traceability.navVerify') },
-    { to: '/market', end: false, label: t('traceability.navMarket') },
-    { to: '/jewelers', end: false, label: t('traceability.navJewelers') },
-    { to: '/mine', end: false, label: t('traceability.navMine') },
-    ...(role.state === 'role' ? [{ to: '/atelier', end: false, label: t('traceability.navAtelier') }] : []),
-    { to: '/account', end: false, label: t('traceability.navAccount') },
+    { to: '/', end: true, label: t('traceability.navVerify'), icon: 'verify' as IconName },
+    { to: '/market', end: false, label: t('traceability.navMarket'), icon: 'market' as IconName },
+    { to: '/jewelers', end: false, label: t('traceability.navJewelers'), icon: 'jewelers' as IconName },
+    { to: '/mine', end: false, label: t('traceability.navMine'), icon: 'gem' as IconName },
+    ...(role.state === 'role' ? [{ to: '/atelier', end: false, label: t('traceability.navAtelier'), icon: 'atelier' as IconName }] : []),
+    { to: '/account', end: false, label: t('traceability.navAccount'), icon: 'account' as IconName },
   ];
   return (
     <nav className="y-tabbar" aria-label={t('traceability.navLabel')}>
       {tabs.map((tab) => (
         <NavLink key={tab.to} to={tab.to} end={tab.end}
                  className={({ isActive }) => `y-tab${isActive ? ' y-tab--on' : ''}`}>
+          <Icon name={tab.icon} className="y-tab__icon" />
           <span className="y-tab__label">{tab.label}</span>
         </NavLink>
       ))}

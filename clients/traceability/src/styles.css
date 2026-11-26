@@ -229,3 +229,132 @@ fieldset.stack legend { padding: 0 var(--sp-1); }
 .pricefield { display: flex; gap: var(--sp-2); }
 .pricefield .bigfield:first-child { flex: 1; min-inline-size: 0; }
 .marketrow { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0 0; font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------ screens as pages
+ * A screen is a column of groups with generous space between them and tight
+ * space inside them, so the eye finds the groups before the controls.
+ */
+.page { display: grid; gap: var(--sp-5); align-content: start; }
+.btn--block { inline-size: 100%; }
+.btn svg { flex: none; }
+
+.pagesection { display: grid; gap: var(--sp-3); }
+.pagesection__title, .menu-group__title {
+  margin: 0; font-family: var(--font-sans); font-size: var(--step--1); font-weight: 600;
+  letter-spacing: 0.02em; color: var(--text-muted); padding-inline: var(--sp-1);
+}
+.pagesection__summary { margin: 0; font-size: var(--step--1); color: var(--text-muted); padding-inline: var(--sp-1); }
+.pagesection__summary a { color: var(--brass-ink); }
+
+/* ------------------------------------------------------------ grouped rows */
+.menu-group { display: grid; gap: var(--sp-2); }
+.menu { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--rule);
+  border-radius: 14px; box-shadow: var(--shadow-1); overflow: hidden; }
+.menu > li + li { border-block-start: 1px solid var(--rule); }
+.menu__row { display: flex; align-items: center; gap: var(--sp-3); inline-size: 100%; min-block-size: 60px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-3); box-sizing: border-box; background: none; border: 0;
+  color: inherit; font: inherit; text-align: start; text-decoration: none; cursor: pointer;
+  transition: background-color 150ms ease-out; }
+.menu__row:hover { background: var(--surface-2); }
+.menu__row:active { background: var(--surface-3); }
+.menu__row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.menu__icon { flex: none; inline-size: 36px; block-size: 36px; display: grid; place-items: center;
+  border-radius: 10px; background: var(--wash-mute); color: var(--accent); }
+.menu__icon--brass { background: var(--wash-brass); color: var(--brass-ink); }
+.menu__icon--bad { background: var(--wash-bad); color: var(--bad); }
+.menu__text { flex: 1; min-inline-size: 0; display: grid; gap: 1px; }
+.menu__title { font-weight: 600; line-height: 1.3; }
+.menu__sub { font-size: var(--step--1); color: var(--text-muted); line-height: 1.35; }
+.menu__end { flex: none; display: flex; align-items: center; gap: var(--sp-2); color: var(--text-faint); }
+.menu__row--danger .menu__title { color: var(--bad); }
+.menu__details > summary { list-style: none; }
+.menu__details > summary::-webkit-details-marker { display: none; }
+.menu__details[open] > summary .menu__end svg { transform: rotate(90deg); }
+.menu__details .menu__end svg { transition: transform 150ms ease-out; }
+[dir='rtl'] .menu__end svg { transform: scaleX(-1); }
+[dir='rtl'] .menu__details[open] > summary .menu__end svg { transform: rotate(90deg); }
+.menu__panel { padding: 0 var(--sp-3) var(--sp-3); }
+
+/* ------------------------------------------------------------- the shop */
+.shophead { display: flex; align-items: center; gap: var(--sp-3); }
+.shophead__mark { flex: none; inline-size: 56px; block-size: 56px; border-radius: 14px; display: grid; place-items: center;
+  overflow: hidden; background: var(--wash-brass); color: var(--brass-ink); border: 1px solid var(--rule);
+  font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; }
+.shophead__logo { inline-size: 100%; block-size: 100%; object-fit: contain; background: var(--surface); }
+.shophead__text { min-inline-size: 0; display: grid; gap: var(--sp-1); }
+.shophead__name { margin: 0; font-family: var(--font-display); font-size: var(--step-3); line-height: 1.1;
+  letter-spacing: -0.01em; text-wrap: balance; }
+.shophead__meta { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+
+/* A search field with its button inside the same line. */
+.searchbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2);
+  padding-inline-start: var(--sp-3); background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+  box-shadow: var(--shadow-1); }
+.searchbar:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.searchbar__icon { color: var(--text-faint); }
+.searchbar__input { min-inline-size: 0; border: 0; background: none; color: var(--text); font-size: 1rem;
+  padding: 0.75rem 0; outline: none; letter-spacing: 0.08em; }
+.searchbar__input::placeholder { font-family: var(--font-sans); letter-spacing: 0; color: var(--text-faint); }
+.searchbar__go { min-block-size: 40px; margin: 3px; border-radius: 9px; }
+.searchbar__note { grid-column: 1 / -1; padding: 0 var(--sp-3) var(--sp-2) 0; }
+
+/* Nothing here yet: the icon, one sentence, the way forward. */
+.emptystate { display: grid; justify-items: center; text-align: center; gap: var(--sp-3);
+  padding: var(--sp-6) var(--sp-4); }
+.emptystate__icon, .intro__icon { inline-size: 56px; block-size: 56px; border-radius: 16px; display: grid; place-items: center;
+  background: var(--wash-mute); color: var(--accent); }
+
+/* ------------------------------------------------------------ the account */
+.intro { display: grid; justify-items: start; gap: var(--sp-2); }
+.intro__title { margin: var(--sp-1) 0 0; font-size: var(--step-3); }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; box-shadow: var(--shadow-1);
+  padding: var(--sp-4); }
+.panel--warn { background: var(--wash-warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.panel__title { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font-weight: 600; color: var(--warn-ink); }
+.lockhead { display: flex; align-items: center; gap: var(--sp-3); }
+.lockhead .intro__icon { inline-size: 48px; block-size: 48px; border-radius: 14px; }
+.lockhead__title { margin: 0; font-weight: 600; }
+
+.profile { display: flex; align-items: center; gap: var(--sp-3); }
+.profile__avatar { flex: none; inline-size: 56px; block-size: 56px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-size: 1.4rem; font-weight: 600; }
+.profile__text { min-inline-size: 0; display: grid; gap: 2px; }
+.profile__email { margin: 0; font-weight: 600; font-size: var(--step-1); overflow-wrap: anywhere; }
+.profile__code { margin: 0; font-family: var(--font-mono); font-size: var(--step--1); color: var(--text-muted); }
+.profile__meta { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-block-start: var(--sp-1); }
+
+.accountcode__qr { justify-self: center; padding: var(--sp-2); background: #fff; border-radius: 10px; line-height: 0; }
+.accountcode__text { font-family: var(--font-mono); font-size: var(--step--1); color: var(--text-muted);
+  overflow-wrap: anywhere; text-align: center; }
+
+/* ------------------------------------------------------------- the tab bar */
+.y-tab { padding-block: var(--sp-2) var(--sp-1); }
+.y-tab__icon { inline-size: 22px; block-size: 22px; }
+.y-tab--on .y-tab__icon { color: var(--accent); }
+
+/* A design's pieces by their engraved codes. A dot marks the one that needs something: no card yet (brass), a claim waiting (accent), stolen (red). */
+.serials { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.serial { display: inline-flex; align-items: center; gap: 6px; min-block-size: 32px; padding: 0 0.6rem; box-sizing: border-box;
+  font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.06em; color: var(--text); text-decoration: none;
+  background: var(--surface-2); border: 1px solid var(--rule); border-radius: 8px; transition: border-color 150ms ease-out; }
+.serial:hover { border-color: var(--brass); }
+.serial:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.serial__dot { inline-size: 7px; block-size: 7px; border-radius: 50%; background: var(--brass); }
+.serial--claimed .serial__dot { background: var(--accent); }
+.serial--offer .serial__dot { background: var(--accent); }
+.serial--stolen { color: var(--bad); border-color: var(--bad); }
+.serial--stolen .serial__dot { background: var(--bad); }
+
+/* Two ways in, one switch. */
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; padding: 3px;
+  background: var(--surface-2); border: 1px solid var(--rule); border-radius: 11px; }
+.segmented__opt { min-block-size: 40px; border: 0; border-radius: 8px; background: none; color: var(--text-muted);
+  font: inherit; font-weight: 600; cursor: pointer; transition: background-color 150ms ease-out, color 150ms ease-out; }
+.segmented__opt[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+.segmented__opt:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+/* Chips in a header wrap rather than push the screen wider. */
+.profile__meta .y-chip, .shophead__meta .y-chip { white-space: normal; }
+.panel--row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); }
+.panel--row .note { flex-basis: 100%; }
+.panel__text { margin: 0; flex: 1 1 12rem; }

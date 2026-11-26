@@ -14,6 +14,8 @@ import { t } from '@yamale/chain';
 
 import { QrCode } from '../../../app/src/qr.tsx';
 import { SERVICES } from '../config.ts';
+import { Icon } from '../icons.tsx';
+import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
 import { AppBar, Section } from '../ui.tsx';
 import { ACCOUNT_EXISTS, MIN_PASSWORD, WrongPassword } from './device.ts';
 import { claimRecovered } from './recover.ts';
@@ -241,10 +243,10 @@ export function WaysIn({ onDone, onBusy }: { onDone?: () => void; onBusy?: (busy
   return (
     <div className="stack">
       {!busy && (
-        <div className="actions" role="tablist">
-          <button type="button" role="tab" aria-selected={mode === 'signin'} className={`btn${mode === 'signin' ? ' btn--primary' : ''}`}
+        <div className="segmented" role="tablist">
+          <button type="button" role="tab" aria-selected={mode === 'signin'} className="segmented__opt"
                   onClick={() => setMode('signin')}>{t('traceability.signInTitle')}</button>
-          <button type="button" role="tab" aria-selected={mode === 'create'} className={`btn${mode === 'create' ? ' btn--primary' : ''}`}
+          <button type="button" role="tab" aria-selected={mode === 'create'} className="segmented__opt"
                   onClick={() => setMode('create')}>{t('traceability.createTitle')}</button>
         </div>
       )}
@@ -302,14 +304,14 @@ export function UnlockGate({ children }: { children: ReactNode }) {
 function AccountCode({ address }: { address: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <details className="code">
-      <summary>{t('traceability.showCode')}</summary>
+    <div className="stack accountcode">
       <p className="hint">{t('traceability.codeExplain')}</p>
-      <QrCode text={address} size={200} />
+      <div className="accountcode__qr"><QrCode text={address} size={200} /></div>
+      <code className="accountcode__text">{address}</code>
       <button type="button" className="btn" onClick={async () => {
         try { await navigator.clipboard.writeText(address); setCopied(true); } catch { /* no clipboard on plain http */ }
       }}>{copied ? t('traceability.copied') : t('traceability.copyCode')}</button>
-    </details>
+    </div>
   );
 }
 
@@ -380,6 +382,8 @@ function RecoverForm() {
   );
 }
 
+const shortCode = (a: string) => `${a.slice(0, 10)}…${a.slice(-6)}`;
+
 export function AccountScreen() {
   const session = useSession();
   const [confirmForget, setConfirmForget] = useState(false);
@@ -389,49 +393,93 @@ export function AccountScreen() {
   return (
     <>
       <AppBar title={t('traceability.accountTitle')} eyebrow={t('traceability.title')} />
-      <main className="y-screen">
-        {(!a || setup) && <Section title={t('traceability.accountTitle')}><WaysIn onBusy={setSetup} /></Section>}
-        {!a && !setup && (
-          <details className="block">
-            <summary>{t('traceability.lostFactorTitle')}</summary>
-            <RecoverForm />
-          </details>
+      <main className="y-screen page">
+        {(!a || setup) && (
+          <>
+            <div className="intro">
+              <span className="intro__icon"><Icon name="account" size={26} /></span>
+              <h1 className="intro__title">{t('traceability.accountTitle')}</h1>
+              <p className="hint">{t('traceability.accountIntro')}</p>
+            </div>
+            <div className="panel"><WaysIn onBusy={setSetup} /></div>
+          </>
         )}
-        {a && !setup && !session.unlocked && <Section title={a.email}><UnlockForm /></Section>}
-        {a && !setup && session.unlocked && (<>
-          <Section title={a.email}>
-            <div className="actions">
-              <span className={`y-chip ${a.protection === 'enrolled' ? 'y-chip--ok' : 'y-chip--warn'}`}>
-                {a.protection === 'enrolled' ? t('traceability.protected') : t('traceability.onlyHere')}
-              </span>
-              <span className={`y-chip ${a.sponsored ? 'y-chip--ok' : 'y-chip--mute'}`}>
-                {a.sponsored ? t('traceability.sponsored') : t('traceability.notSponsored')}
-              </span>
-            </div>
-            {!a.sponsored && <button className="btn" onClick={async () => {
-              const out = await session.ensureSponsored();
-              setSponsorNote(out === 'sponsored' ? null : out);
-            }}>{t('traceability.sponsorRetry')}</button>}
-            {sponsorNote && !a.sponsored && <p className="note" role="status">{t(`traceability.sponsorOutcome.${sponsorNote}`)}</p>}
-            <AccountCode address={a.address} />
-          </Section>
-          {a.protection !== 'enrolled' && <Section title={t('traceability.protectTitle')}><ProtectButton /></Section>}
-          <Section title={t('traceability.forJewelers')}><Link className="btn" to="/apply">{t('traceability.applyLink')}</Link></Section>
-          <Section title={t('traceability.thisDevice')}>
-            <div className="actions">
-              <button className="btn" onClick={session.lock}>{t('traceability.lock')}</button>
-              <button className="btn btn--danger" onClick={() => setConfirmForget(true)}>{t('traceability.signOut')}</button>
-            </div>
-            {confirmForget && (
-              <div className="banner banner--bad" role="alert">
-                <p>{a.protection === 'enrolled' ? t('traceability.signOutProtected') : t('traceability.forgetUnprotected')}</p>
-                <div className="actions">
-                  <button className="btn btn--danger" onClick={session.forget}>{a.protection === 'enrolled' ? t('traceability.signOut') : t('traceability.forgetConfirm')}</button>
-                  <button className="btn" onClick={() => setConfirmForget(false)}>{t('traceability.cancel')}</button>
-                </div>
+        {!a && !setup && (
+          <MenuGroup>
+            <MenuDisclosure icon="key" title={t('traceability.lostFactorTitle')} sub={t('traceability.lostFactorSub')}>
+              <RecoverForm />
+            </MenuDisclosure>
+          </MenuGroup>
+        )}
+        {a && !setup && !session.unlocked && (
+          <div className="panel stack">
+            <div className="lockhead">
+              <span className="intro__icon"><Icon name="lock" size={24} /></span>
+              <div>
+                <p className="lockhead__title">{t('traceability.lockedTitle')}</p>
+                {a.email && <p className="hint">{a.email}</p>}
               </div>
-            )}
-          </Section>
+            </div>
+            <UnlockForm />
+          </div>
+        )}
+        {a && !setup && session.unlocked && (<>
+          <header className="profile">
+            <span className="profile__avatar" aria-hidden="true">{(a.email || '?').charAt(0).toUpperCase()}</span>
+            <div className="profile__text">
+              <p className="profile__email">{a.email}</p>
+              <p className="profile__code">{shortCode(a.address)}</p>
+              <div className="profile__meta">
+                <span className={`y-chip ${a.protection === 'enrolled' ? 'y-chip--ok' : 'y-chip--warn'}`}>
+                  {a.protection === 'enrolled' ? t('traceability.protected') : t('traceability.onlyHere')}
+                </span>
+                {a.sponsored && <span className="y-chip y-chip--ok">{t('traceability.sponsored')}</span>}
+              </div>
+            </div>
+          </header>
+
+          {a.protection !== 'enrolled' && (
+            <div className="panel panel--warn stack">
+              <p className="panel__title"><Icon name="shield" /> {t('traceability.protectTitle')}</p>
+              <ProtectButton />
+            </div>
+          )}
+          {!a.sponsored && (
+            <div className="panel panel--row">
+              <p className="panel__text">{t('traceability.notSponsored')}</p>
+              <button className="btn" onClick={async () => {
+                const out = await session.ensureSponsored();
+                setSponsorNote(out === 'sponsored' ? null : out);
+              }}>{t('traceability.sponsorRetry')}</button>
+              {sponsorNote && <p className="note" role="status">{t(`traceability.sponsorOutcome.${sponsorNote}`)}</p>}
+            </div>
+          )}
+
+          <MenuGroup title={t('traceability.accountGroup')}>
+            <MenuDisclosure icon="qr" title={t('traceability.showCode')} sub={t('traceability.accountCodeSub')}>
+              <AccountCode address={a.address} />
+            </MenuDisclosure>
+            <MenuLink to="/mine" icon="gem" title={t('traceability.navMine')} sub={t('traceability.accountMineSub')} />
+          </MenuGroup>
+
+          <MenuGroup title={t('traceability.forJewelers')}>
+            <MenuLink to="/apply" icon="jewelers" tone="brass" title={t('traceability.applyLink')} sub={t('traceability.accountApplySub')} />
+          </MenuGroup>
+
+          <MenuGroup title={t('traceability.thisDevice')}>
+            <MenuButton icon="lock" title={t('traceability.lock')} sub={t('traceability.lockSub')} onClick={session.lock} />
+            <MenuButton icon="logout" tone="bad" danger title={t('traceability.signOut')} sub={t('traceability.signOutSub')}
+                        onClick={() => setConfirmForget(true)} />
+          </MenuGroup>
+          {confirmForget && (
+            <div className="banner banner--bad stack" role="alert">
+              <p>{a.protection === 'enrolled' ? t('traceability.signOutProtected') : t('traceability.forgetUnprotected')}</p>
+              <div className="actions">
+                <button className="btn btn--danger" onClick={session.forget}>{a.protection === 'enrolled' ? t('traceability.signOut') : t('traceability.forgetConfirm')}</button>
+                <button className="btn" onClick={() => setConfirmForget(false)}>{t('traceability.cancel')}</button>
+              </div>
+            </div>
+          )}
         </>)}
       </main>
     </>

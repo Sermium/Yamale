@@ -55,7 +55,8 @@ export function KeptCardsPage() {
       : Promise.resolve({ ok: true as const, height: 0, value: [] })),
     [shop?.business, head?.ok]);
   const [printAll, setPrintAll] = useState(false);
-  const [making, setMaking] = useState<Selection | null>(null);
+  // 'choose' opens the full chooser: pieces without a card, or every piece of one design.
+  const [making, setMaking] = useState<Selection | 'choose' | null>(null);
 
   const bar = <AppBar title={t('traceability.cardsPageTitle')} eyebrow={shop?.name ?? ''} back />;
   if (role.state === 'loading' || !head || !stock) return <>{bar}<main className="y-screen"><Loading /></main></>;
@@ -79,7 +80,7 @@ export function KeptCardsPage() {
         {all.length === 0 && <p className="hint">{t('traceability.noStock')}</p>}
         {making ? (
           <UnlockGate>
-            <PrintCards shop={shop} stock={all} initial={making}
+            <PrintCards shop={shop} stock={all} initial={making === 'choose' ? undefined : making}
                         onClose={(changed) => { setMaking(null); if (changed) reload(); }} />
           </UnlockGate>
         ) : (<>
@@ -88,6 +89,9 @@ export function KeptCardsPage() {
               <button type="button" className="btn btn--primary" onClick={() => setMaking({ kind: 'some', jewelIds: missing.map((p) => p.jewelId) })}>
                 {t('traceability.cardsMakeMissing', { n: missing.length })}
               </button>
+            )}
+            {canMake && all.length > 0 && (
+              <button type="button" className="btn" onClick={() => setMaking('choose')}>{t('traceability.cardsPrintButton')}</button>
             )}
             {kept.length > 0 && (
               <button type="button" className="btn" onClick={() => { setPrintAll(true); setTimeout(() => { window.print(); setPrintAll(false); }, 300); }}>

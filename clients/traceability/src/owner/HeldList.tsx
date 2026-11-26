@@ -87,11 +87,27 @@ export function HeldRow({ group, to, cards }: { group: HeldGroup; to: (id: strin
         </span>
         {chips}
       </div>
-      <select className="jewelcard__serials" value="" aria-label={t('traceability.serialsOf', { title })}
-              onChange={(e) => { if (e.target.value) navigate(to(e.target.value)); }}>
-        <option value="">{t('traceability.chooseSerial')}</option>
-        {group.items.map((h) => <option key={h.id} value={h.id}>{mark(h)}</option>)}
-      </select>
+      {group.items.length <= 12 ? (
+        // A handful of pieces reads best as their codes, each one a way in.
+        <ul className="serials" aria-label={t('traceability.serialsOf', { title })}>
+          {group.items.map((h) => {
+            const flag = h.stolen ? 'stolen' : cards && h.claimed ? 'claimed' : cards && !h.hasCard ? 'nocard' : h.onOffer ? 'offer' : '';
+            return (
+              <li key={h.id}>
+                <Link className={flag ? `serial serial--${flag}` : 'serial'} to={to(h.id)} aria-label={mark(h)} title={mark(h)}>
+                  {h.inscription}{flag && <span className="serial__dot" aria-hidden="true" />}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <select className="jewelcard__serials" value="" aria-label={t('traceability.serialsOf', { title })}
+                onChange={(e) => { if (e.target.value) navigate(to(e.target.value)); }}>
+          <option value="">{t('traceability.chooseSerial')}</option>
+          {group.items.map((h) => <option key={h.id} value={h.id}>{mark(h)}</option>)}
+        </select>
+      )}
     </li>
   );
 }
