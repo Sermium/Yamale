@@ -37,7 +37,7 @@ done
 [ -d "$clients/site/docs" ] && cp -r "$clients/site/docs" "$staging/docs"
 
 # Built apps.
-for app in app explorer wallet safe rwa herd; do
+for app in app explorer wallet safe rwa herd accounts; do
   if [ -d "$clients/$app/dist" ]; then
     mkdir -p "$staging/$app"
     cp -r "$clients/$app/dist/." "$staging/$app/"

@@ -1,0 +1,42 @@
+/* accounts.yamaletech.com: the shared visual system, and the few controls this one screen needs. */
+
+.skip { position: absolute; inset-inline-start: -9999px; background: var(--surface); color: var(--text);
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--radius); z-index: 20; }
+.skip:focus { inset-inline-start: var(--sp-3); top: var(--sp-3); }
+.stage__brand { display: inline-flex; align-items: center; gap: var(--sp-2);
+  font-family: var(--font-display); font-weight: 600; }
+
+.screen { display: grid; gap: var(--sp-5); align-content: start; padding: var(--sp-5) var(--sp-4) var(--sp-6); }
+.stack { display: grid; gap: var(--sp-2); }
+.mast { display: grid; gap: var(--sp-2); justify-items: start; }
+.mast__mark { inline-size: 56px; block-size: 56px; }
+.mast__title { font-family: var(--font-display); font-size: var(--step-3); line-height: 1.15; margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--text-muted); max-inline-size: 60ch; }
+
+.field { font: inherit; font-size: 1.1rem; padding: 0.7rem 0.8rem; border: 1px solid var(--rule);
+  border-radius: var(--radius); background: var(--surface); color: var(--text); inline-size: 100%; box-sizing: border-box; }
+.field:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.field--code { font-family: var(--font-mono); letter-spacing: 0.3em; text-align: center; font-size: 1.4rem; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
+  min-block-size: 48px; padding: 0 1rem; border-radius: var(--radius); border: 1px solid var(--rule);
+  background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+  text-decoration: none; inline-size: 100%; }
+.btn--primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn--quiet { background: transparent; border-color: transparent; color: var(--text-muted); font-weight: 500; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.hint { color: var(--text-muted); font-size: 0.88rem; margin: 0; }
+.note { margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--radius); background: var(--wash-mute); }
+.note--warn { background: var(--wash-warn); color: var(--warn-ink); }
+
+/* Who is about to be signed in, and into what: the one decision on this page. */
+.handoff { display: grid; gap: var(--sp-3); padding: var(--sp-4); border: 1px solid var(--rule);
+  border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-1); }
+.handoff__app { margin: 0; font-family: var(--font-display); font-size: var(--step-1); font-weight: 600; }
+.handoff__who { display: flex; align-items: center; gap: var(--sp-3); }
+.handoff__avatar { inline-size: 40px; block-size: 40px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); font-weight: 700; flex: none; }
+.handoff__email { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.handoff__origin { margin: 0; font-family: var(--font-mono); font-size: var(--step--1); color: var(--text-muted); }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { t, LanguagePicker, useLocale, formatUserId, getLocale } from '@yamale/chain';
 import { countryNames, guessCountry } from '../../shared/account/countries.ts';
+import { canSignInWithYamale, handoffOutcome, signInWithYamale } from '../../shared/account/handoff.ts';
 
 import {
   checkPassword, eraseEverything, finishSignIn, lastEmail, revealPhrase, signIn, signOut, signUp,
@@ -381,6 +382,13 @@ function Welcome({ onSignedIn }: { onSignedIn: (s: Signer, previous?: Previous) 
       <h1>{t('app.title')}</h1>
       <p className="muted">{t('app.tagline')}</p>
       <p className="muted">{t('app.sharedAccountNote')}</p>
+
+      {mode === 'in' && handoffOutcome() === 'imported' && <p className="notice">{t('app.handoffImported')}</p>}
+      {mode === 'in' && handoffOutcome() === 'exists' && <p className="notice notice--bad">{t('app.handoffExists')}</p>}
+      {mode === 'in' && handoffOutcome() === 'failed' && <p className="notice notice--bad">{t('app.handoffFailed')}</p>}
+      {mode === 'in' && canSignInWithYamale() && handoffOutcome() !== 'imported' && (
+        <button type="button" className="primary" onClick={() => signInWithYamale('/app/')}>{t('app.signInWithYamale')}</button>
+      )}
 
       <form onSubmit={submit} className="form">
         {mode === 'up' && (<>

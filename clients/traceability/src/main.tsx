@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AVAILABLE, registerAll, resolveLocale, setLocale } from '@yamale/chain';
 
 import { App } from './App.tsx';
+import { receiveHandoffHere } from '../../shared/account/handoff.ts';
 import { ErrorBoundary } from './ErrorBoundary.tsx';
 // The shared visual system first, then this surface's own rules on top of it.
 import '../../shared/yamale.css';
@@ -20,6 +21,9 @@ try {
 // every logical property in the stylesheets reads it.
 registerAll();
 setLocale(resolveLocale(AVAILABLE));
+
+// An account handed over by accounts.yamaletech.com is stored before the session reads it.
+receiveHandoffHere();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

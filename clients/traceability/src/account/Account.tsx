@@ -19,6 +19,7 @@ import { Purse } from '../market/Purse.tsx';
 import { ProfileCode } from './names.tsx';
 import { claimIdentifier, CountrySelect, guessCountry } from './identifier.tsx';
 import { ProfileSection } from './profile.tsx';
+import { canSignInWithYamale, handoffOutcome, signInWithYamale } from '../../../shared/account/handoff.ts';
 import { savePerson } from '../api.ts';
 import { Icon } from '../icons.tsx';
 import { MenuButton, MenuDisclosure, MenuGroup, MenuLink } from '../menu.tsx';
@@ -275,6 +276,14 @@ export function WaysIn({ onDone, onBusy }: { onDone?: () => void; onBusy?: (busy
                   onClick={() => setMode('create')}>{t('traceability.createTitle')}</button>
         </div>
       )}
+      {mode === 'signin' && handoffOutcome() === 'exists' && <p className="note note--warn" role="alert">{t('traceability.handoffExists')}</p>}
+      {mode === 'signin' && handoffOutcome() === 'failed' && <p className="note note--warn" role="alert">{t('traceability.handoffFailed')}</p>}
+      {mode === 'signin' && canSignInWithYamale() && (<>
+        <button type="button" className="btn btn--primary btn--block" onClick={() => signInWithYamale('/account')}>
+          {t('traceability.signInWithYamale')}
+        </button>
+        <p className="hint">{t('traceability.signInWithYamaleHint')}</p>
+      </>)}
       {mode === 'signin' ? <SignInForm onDone={onDone} /> : <CreateForm onDone={onDone} onBusy={setBusy} />}
       {mode === 'create' && !busy && <p className="hint">{t('traceability.newAccountWarning')}</p>}
     </div>
