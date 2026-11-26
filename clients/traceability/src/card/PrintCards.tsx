@@ -16,6 +16,7 @@ import { PUBLIC_ORIGIN } from '../config.ts';
 import { useLoad } from '../ui.tsx';
 import { Hallmark } from '../verify/JewelPage.tsx';
 import { VerifiedImage } from '../verify/Photos.tsx';
+import { syncVault } from './vaultSync.ts';
 import { cancels, forgetKeptCard, issueCards, keepCard, pages, selectPieces, type IssueResult, type Selection, type StockPiece } from './cards.ts';
 
 interface Shop { name: string; jewelerId: string; business: string }
@@ -54,6 +55,12 @@ export function PrintCards({ shop, stock, initial, onClose }: {
       const key = errorKey(raw);
       return { ok: false, text: key ? t(`traceability.err.${key}`) : (r.error?.message ?? t('traceability.err.unknown')) };
     }, undefined, undefined, (d, of) => setProgress([d, of]));
+    // Into the shop's vault before anything else, so the cards are on the
+    // colleagues' devices even if this one is closed straight after printing.
+    if (out.issued.length > 0 && session.address) {
+      const ids = out.issued.map((c) => c.jewelId);
+      await syncVault(session.withKey, session.address, shop.jewelerId, ids, new Set(ids));
+    }
     setResult(out);
     setPhase('done');
   }

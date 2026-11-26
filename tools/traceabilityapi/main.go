@@ -66,6 +66,8 @@ type server struct {
 	draftModel   string
 	draftMonthly int
 	catMu        sync.Mutex
+	vaultMu      sync.Mutex // the card vault files
+	keys         KeyReader  // nil: members are known only by their own requests
 	importing    map[string]bool
 	usageMu      sync.Mutex
 	logMu        sync.Mutex
@@ -116,6 +118,7 @@ func main() {
 		chainID:      *chainID,
 		chain:        chain,
 		balances:     chain,
+		keys:         chain,
 		sponsorFloor: floorAmount,
 		sponsorDenom: floorDenom,
 		now:          time.Now,
@@ -183,6 +186,8 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("GET /v1/applications", s.handleApplications)
 	mux.HandleFunc("POST /v1/catalogue/import", s.handleCatalogueImport)
 	mux.HandleFunc("GET /v1/catalogue", s.handleCatalogue)
+	mux.HandleFunc("GET /v1/cardvault", s.handleVaultRead)
+	mux.HandleFunc("PUT /v1/cardvault/{jewel}", s.handleVaultPut)
 	mux.HandleFunc("PUT /v1/catalogue/designs/{id}", s.handleDesignSave)
 	mux.HandleFunc("POST /v1/catalogue/designs/{id}/confirm", s.handleDesignConfirm)
 	mux.HandleFunc("GET /v1/catalogue/designs/{id}/images/{n}", s.handleDesignImage)

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { chainHead, readJewel, t } from '@yamale/chain';
 
@@ -8,6 +8,7 @@ import { OfferPanel } from '../../owner/OfferPanel.tsx';
 import { offerIsOpen } from '../../owner/offers.ts';
 import { PrintCards } from '../../card/PrintCards.tsx';
 import { forgetKeptCard, keptCard } from '../../card/cards.ts';
+import { syncVault } from '../../card/vaultSync.ts';
 import { KeptCard } from '../../card/KeptCards.tsx';
 import { ClaimDecision } from '../claims/Claims.tsx';
 import { SellPanel } from '../../market/SellPanel.tsx';
@@ -29,6 +30,17 @@ export function AtelierJewel() {
   const [head, reloadHead] = useLoad(() => chainHead(), []);
   const record = useRecord(view?.ok ? view.value.jewel : null);
   const [printing, setPrinting] = useState(false);
+  // A card made on another device or by a colleague is fetched from the shop's vault.
+  const [, setFetched] = useState(0);
+  const shopId = role.state === 'role' ? role.jeweler.id : '';
+  const needsCard = !!(view?.ok && view.value.hasCard && !keptCard(id));
+  useEffect(() => {
+    if (!shopId || !needsCard || !session.unlocked || !session.address) return;
+    let live = true;
+    syncVault(session.withKey, session.address, shopId, [id]).then((r) => { if (live && r.ok) setFetched((n) => n + 1); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shopId, needsCard, id, session.unlocked, session.address]);
 
   const bar = <AppBar title={t('traceability.atelierTitle')} eyebrow="" back />;
   if (!valid) return <NotFound />;
@@ -90,7 +102,7 @@ export function AtelierJewel() {
                 ? <KeptCard shop={{ name: role.jeweler.name, jewelerId: role.jeweler.id, business: role.jeweler.business }}
                             piece={{ jewelId: id, title: record.state === 'ok' ? record.record.title : null, inscription: v.jewel.inscription }}
                             privateKey={k} />
-                : <p className="hint">{t('traceability.cardNotKept')}</p>;
+                : <p className="hint">{t(session.unlocked ? 'traceability.cardElsewhere' : 'traceability.cardVaultLocked')}</p>;
             })()}
             {!canAct && <p className="hint">{t('traceability.staffOnly')}</p>}
             {canAct && !printing && !v.jewel.stolen && (

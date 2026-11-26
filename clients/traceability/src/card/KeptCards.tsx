@@ -6,7 +6,7 @@
  * a piece's own page in the Atelier.
  */
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { cardLink, chainHead, t } from '@yamale/chain';
 
 import { UnlockGate } from '../account/Account.tsx';
@@ -21,6 +21,7 @@ import { forgetKeptCard, keptCard, type Selection } from './cards.ts';
 import { CardSheet, OwnershipCard, PrintCards } from './PrintCards.tsx';
 import { CardImageButtons } from './CardImageButtons.tsx';
 import { readProfile } from '../api.ts';
+import { syncVault, type VaultSync } from './vaultSync.ts';
 
 interface Shop { name: string; jewelerId: string; business: string }
 interface Piece { jewelId: string; title: string | null; inscription: string }
@@ -71,6 +72,18 @@ export function KeptCardsPage() {
   const [printAll, setPrintAll] = useState(false);
   // 'choose' opens the full chooser: pieces without a card, or every piece of one design.
   const [making, setMaking] = useState<Selection | 'choose' | null>(null);
+  // The shop's card vault: cards made on another device or by a colleague
+  // arrive here, and the ones kept here go to the colleagues who lack them.
+  const [vault, setVault] = useState<VaultSync | 'running' | null>(null);
+  const withCard = stock?.ok ? stockPieces(stock.value).filter((p) => p.hasCard).map((p) => p.jewelId).join(',') : '';
+  useEffect(() => {
+    if (!shop || !session.unlocked || !session.address || !withCard) return;
+    let live = true;
+    setVault('running');
+    syncVault(session.withKey, session.address, shop.jewelerId, withCard.split(',')).then((r) => { if (live) setVault(r); });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shop?.jewelerId, withCard, session.unlocked, session.address]);
 
   const bar = <AppBar title={t('traceability.cardsPageTitle')} eyebrow={shop?.name ?? ''} back />;
   if (role.state === 'loading' || !head || !stock) return <>{bar}<main className="y-screen"><Loading /></main></>;
@@ -83,7 +96,10 @@ export function KeptCardsPage() {
   for (const p of all) if (!p.hasCard) forgetKeptCard(p.jewelId);
   const rows = all.map((p) => ({ ...p, privateKey: p.hasCard ? keptCard(p.jewelId) : null }));
   const kept = rows.flatMap((r) => (r.privateKey ? [{ ...r, privateKey: r.privateKey }] : []));
-  const missing = rows.filter((r) => !r.privateKey);
+  // Only pieces with no card at all: making a card for a piece that has one
+  // cancels the card already handed to the customer.
+  const missing = rows.filter((r) => !r.hasCard);
+  const elsewhere = rows.filter((r) => r.hasCard && !r.privateKey).length;
   const canMake = role.staff && role.active;
 
   return (
@@ -91,6 +107,12 @@ export function KeptCardsPage() {
       {bar}
       <main className="y-screen">
         <p className="lede">{t('traceability.cardsPageLede')}</p>
+        {elsewhere > 0 && !session.unlocked && <p className="note">{t('traceability.cardVaultLocked')}</p>}
+        {vault === 'running' && <p className="hint" role="status">{t('traceability.cardVaultRunning')}</p>}
+        {vault && vault !== 'running' && vault.ok && vault.received > 0 && (
+          <p className="note" role="status">{t('traceability.cardVaultReceived', { n: vault.received })}</p>
+        )}
+        {vault && vault !== 'running' && !vault.ok && <p className="note note--warn" role="alert">{t('traceability.cardVaultFailed')}</p>}
         {all.length === 0 && <p className="hint">{t('traceability.noStock')}</p>}
         {making ? (
           <UnlockGate>
@@ -122,11 +144,11 @@ export function KeptCardsPage() {
                 {p.privateKey ? (
                   <KeptCard shop={shop} piece={p} privateKey={p.privateKey} />
                 ) : (<>
-                  <p className="hint">{t(p.hasCard ? 'traceability.cardNotKept' : 'traceability.cardNone')}</p>
+                  <p className="hint">{t(p.hasCard ? 'traceability.cardElsewhere' : 'traceability.cardNone')}</p>
                   {canMake && (
                     <div className="actions">
-                      <button type="button" className="btn" onClick={() => setMaking({ kind: 'one', jewelId: p.jewelId })}>
-                        {t('traceability.cardMakeOne')}
+                      <button type="button" className={p.hasCard ? 'btn btn--danger' : 'btn'} onClick={() => setMaking({ kind: 'one', jewelId: p.jewelId })}>
+                        {t(p.hasCard ? 'traceability.cardReplace' : 'traceability.cardMakeOne')}
                       </button>
                     </div>
                   )}

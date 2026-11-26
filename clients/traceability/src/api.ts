@@ -5,6 +5,7 @@
  */
 
 import { sha256Hex, signedHeaders, type TraceabilityPurpose } from '../../sdk/src/traceabilityauth.ts';
+import type { VaultRead } from './card/vault.ts';
 import type { Stone } from './verify/record.ts';
 
 // Not imported from config.ts: that module reads `window` when it loads, and
@@ -274,4 +275,26 @@ export function confirmDesign(key: Uint8Array, d: Design, c: { title: string; fi
 
 export function fetchDesignImage(key: Uint8Array, jewelerId: string, id: string, n: number, chainId: string): Promise<ApiResult<Blob>> {
   return apiCall(`/v1/catalogue/designs/${id}/images/${n}`, { headers: signedHeaders(key, 'catalogue-read', chainId, jewelerId) }, (res) => res.blob());
+}
+
+/* ------------------------------------------------------------ card vault */
+
+/** The shop's card vault as this member may see it: its own boxes, who holds each card, and the members' keys. */
+export function readVault(key: Uint8Array, jewelerId: string, chainId: string): Promise<ApiResult<VaultRead>> {
+  return apiCall('/v1/cardvault', { headers: signedHeaders(key, 'cardvault-read', chainId, jewelerId) }, json);
+}
+
+/** Boxes for one card. The signature covers the jeweler, the piece and the exact body. */
+export function putVault(key: Uint8Array, jewelerId: string, jewelId: string,
+  body: { card_key: string; boxes: Record<string, string> }, chainId: string) {
+  const bytes = utf8.encode(JSON.stringify(body));
+  const subject = sha256Hex(concatBytes(utf8.encode(`${jewelerId}:${jewelId}:`), bytes));
+  return signedSend('PUT', `/v1/cardvault/${jewelId}`, key, 'cardvault-put', subject, bytes, chainId);
+}
+
+function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
 }
